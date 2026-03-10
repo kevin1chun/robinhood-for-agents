@@ -6,7 +6,7 @@
  * token response and stores it via the encrypted token store.
  */
 
-import { getClient, saveTokens } from "@rh-agent-tools/client";
+import { getClient, saveTokens } from "@rh-for-agents/client";
 import type { Browser } from "playwright-core";
 import { chromium, type Request, type Response } from "playwright-core";
 
@@ -44,18 +44,29 @@ export async function browserLogin(): Promise<BrowserLoginResult> {
         TIMEOUT_MS,
       );
 
-      // Capture device_token from the request body
+      // Capture device_token from the request body (form-urlencoded or JSON)
       let capturedDeviceToken = "";
 
       page.on("request", (request: Request) => {
         if (request.url().includes("/oauth2/token")) {
           try {
             const postData = request.postData();
-            if (postData) {
-              const params = new URLSearchParams(postData);
-              const dt = params.get("device_token");
-              if (dt) capturedDeviceToken = dt;
+            if (!postData) return;
+
+            // Try JSON first (Robinhood frontend sends JSON)
+            try {
+              const json = JSON.parse(postData) as Record<string, unknown>;
+              if (typeof json.device_token === "string") {
+                capturedDeviceToken = json.device_token;
+                return;
+              }
+            } catch {
+              // Not JSON — try form-urlencoded
             }
+
+            const params = new URLSearchParams(postData);
+            const dt = params.get("device_token");
+            if (dt) capturedDeviceToken = dt;
           } catch {
             // Ignore parse errors
           }
@@ -69,12 +80,14 @@ export async function browserLogin(): Promise<BrowserLoginResult> {
         try {
           const data = (await response.json()) as Record<string, unknown>;
           if (data.access_token) {
+            // device_token may come from response if not captured from request
+            const deviceToken = capturedDeviceToken || (data.device_token as string) || "";
             clearTimeout(timeout);
             resolve({
               accessToken: data.access_token as string,
               refreshToken: (data.refresh_token as string) ?? "",
               tokenType: (data.token_type as string) ?? "Bearer",
-              deviceToken: capturedDeviceToken,
+              deviceToken,
             });
           }
         } catch {

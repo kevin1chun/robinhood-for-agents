@@ -1,8 +1,4 @@
-# rh-agent-tools — Architecture & Design
-
-## Context
-
-`robin_stocks` (the pip library) is unmaintained. `load_phoenix_account()` is broken (`phoenix.robinhood.com` rejects TLS), multi-account requires raw HTTP calls that bypass the library, and `input()` calls block non-interactive environments. We replaced it with a custom TypeScript client purpose-built for AI agents.
+# rh-for-agents — Architecture & Design
 
 ## System Overview
 
@@ -24,7 +20,7 @@
 │          ▼                            ▼                         │
 │   ┌───────────────────────────────────────────┐                 │
 │   │      packages/client/src/                 │                 │
-│   │      @rh-agent-tools/client               │                 │
+│   │      @rh-for-agents/client               │                 │
 │   │  ┌─────────────────────────────────────┐  │                 │
 │   │  │  session: RobinhoodSession (fetch)  │  │                 │
 │   │  │  loggedIn: boolean                  │  │                 │
@@ -60,7 +56,7 @@
 ## File Map
 
 ```
-packages/client/src/          <- @rh-agent-tools/client
+packages/client/src/          <- @rh-for-agents/client
 ├── index.ts                  <- Exports: RobinhoodClient, getClient(), login()
 ├── client.ts                 <- RobinhoodClient class (~50 async methods)
 ├── auth.ts                   <- Session restore + token refresh
@@ -72,7 +68,7 @@ packages/client/src/          <- @rh-agent-tools/client
 ├── types.ts                  <- Zod schemas + inferred types
 └── branded.ts                <- AccountNumber, OrderId, etc. branded types
 
-packages/server/src/           <- rh-agent-tools MCP server
+packages/server/src/           <- rh-for-agents MCP server
 ├── index.ts                   <- main() export, StdioServerTransport
 ├── server.ts                  <- McpServer creation + tool registration
 ├── browser-auth.ts            <- Playwright browser login capture
@@ -95,70 +91,134 @@ packages/server/src/           <- rh-agent-tools MCP server
 
 ## Authentication
 
-### Token Lifecycle
+### Full Auth Flow
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                restoreSession() called                    │
-│                          │                                │
-│                          ▼                                │
-│              loadTokens()                                 │
-│    ~/.rh-agent-tools/session.enc                          │
-│              │                                            │
-│              ├─── AES-256-GCM decrypt                     │
-│              │    (key from OS keychain via keytar)        │
-│              │                                            │
-│              ▼                                            │
-│     Set Authorization header                              │
-│     Validate: GET /positions/                             │
-│              │                                            │
-│         ┌────┴────┐                                       │
-│       Valid?    Invalid?                                  │
-│         │         │                                       │
-│    return      ┌──┘                                       │
-│   "cached"     │                                          │
-│                ▼                                          │
-│      POST /oauth2/token/                                  │
-│      (refresh_token)                                      │
-│                │                                          │
-│         ┌──────┴──────┐                                   │
-│       Success?      Failure?                              │
-│         │              │                                  │
-│    saveTokens()     throw                                 │
-│    return          AuthenticationError                    │
-│   "refreshed"      ("Use robinhood_browser_login")       │
-│                                                           │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  robinhood_browser_login              restoreSession()                  │
+│  (first-time / expired)               (every tool call)                │
+│          │                                    │                         │
+│          ▼                                    ▼                         │
+│  ┌───────────────────┐               loadTokens()                      │
+│  │ Playwright launches│               ~/.rh-for-agents/session.enc     │
+│  │ system Chrome      │                       │                         │
+│  │ (headless: false)  │               AES-256-GCM decrypt              │
+│  └────────┬──────────┘               (key from OS keychain)            │
+│           │                                   │                         │
+│           ▼                                   ▼                         │
+│  ┌───────────────────┐               Set Authorization header          │
+│  │ Navigate to        │               Validate: GET /positions/        │
+│  │ robinhood.com/login│                       │                         │
+│  └────────┬──────────┘                  ┌─────┴─────┐                  │
+│           │                           Valid?      Invalid?             │
+│           ▼                             │           │                   │
+│  ┌───────────────────┐            return        ┌──┘                   │
+│  │ User logs in       │           "cached"       │                      │
+│  │ (email, password,  │                          ▼                      │
+│  │  MFA push/SMS)     │              POST /oauth2/token/               │
+│  └────────┬──────────┘              (grant_type: refresh_token,        │
+│           │                          expires_in: 734000)               │
+│           ▼                                 │                           │
+│  ┌───────────────────────────┐       ┌──────┴──────┐                   │
+│  │ Robinhood frontend calls   │    Success?      Failure?             │
+│  │ POST /oauth2/token         │       │              │                  │
+│  │                            │  saveTokens()     throw                │
+│  │ Playwright intercepts:     │  return          AuthError             │
+│  │  request  → device_token   │  "refreshed"     "Use browser_login"  │
+│  │  response → access_token,  │                                        │
+│  │             refresh_token   │                                        │
+│  └────────┬──────────────────┘                                         │
+│           │                                                             │
+│           ▼                                                             │
+│  saveTokens() ──► token-store.ts                                       │
+│           │       AES-256-GCM encrypt                                  │
+│           │       Write ~/.rh-for-agents/session.enc                   │
+│           │       Key → OS Keychain (never on disk)                    │
+│           │                                                             │
+│           ▼                                                             │
+│  restoreSession() ──► client ready                                     │
+│  getAccountProfile() → account_hint                                    │
+│  Close browser                                                         │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
+
+The left path is the **initial login** (browser-based, user-interactive). The right path is the **session restore** (automatic, every tool call). When the cached access token is invalid, it attempts a silent refresh using the stored `refresh_token` (with `expires_in: 734000` ~8.5 days, matching pyrh). If refresh also fails, the user is directed back to browser login.
+
+### Why Browser-Based Auth
+
+The browser login is **purely passive** — Playwright never clicks buttons, fills forms, or predicts the login flow. It opens a real Chrome window, the user completes login entirely on their own (including whatever MFA Robinhood requires), and Playwright only intercepts the network traffic:
+
+- `page.on("request")` captures `device_token` from POST body to `/oauth2/token`
+- `page.on("response")` captures `access_token` + `refresh_token` from the 200 response
+
+This design is resilient to Robinhood UI changes — it doesn't depend on any DOM selectors, page structure, or login step ordering. As long as the OAuth token endpoint exists, the interception works. `playwright-core` is used (not `playwright`) so no browser binary is bundled — it drives the user's system Chrome.
 
 ### Encrypted Token Storage
 
 ```
-┌─ token-store.ts ──────────────────────────────────┐
-│                                                    │
-│  Data (JSON):                                      │
-│  {access_token, refresh_token, token_type,         │
-│   device_token, account_hint, saved_at}            │
-│         │                                          │
-│         ▼                                          │
-│  AES-256-GCM encrypt(json_bytes)                   │
-│  Format: [iv (12)] [tag (16)] [ciphertext]         │
-│         │                                          │
-│         ▼                                          │
-│  ~/.rh-agent-tools/session.enc  (0o600)            │
-│                                                    │
-│  Key: OS Keychain (via keytar)                     │
-│  ├── service: "rh-agent-tools"                     │
-│  └── username: "encryption-key"                    │
-│  Generated once via randomBytes(32)                │
-│  Never on filesystem.                              │
-│                                                    │
-│  Fallback: plaintext JSON if keytar unavailable    │
-│  (CI environments, minimal installs)               │
-└────────────────────────────────────────────────────┘
+┌─ token-store.ts ──────────────────────────────────────────────────┐
+│                                                                    │
+│  SAVE (encrypt)                                                    │
+│  ─────────────                                                     │
+│  TokenData (JSON):                                                 │
+│  {access_token, refresh_token, token_type, device_token, saved_at} │
+│         │                                                          │
+│         ▼                                                          │
+│  JSON.stringify() → Buffer                                         │
+│         │                                                          │
+│         ▼                                                          │
+│  getOrCreateKey()                                                  │
+│  ├── keytar.getPassword("rh-for-agents", "encryption-key")        │
+│  ├── If no key exists: randomBytes(32), store in keychain          │
+│  └── Returns 32-byte Buffer                                       │
+│         │                                                          │
+│         ▼                                                          │
+│  AES-256-GCM encrypt:                                              │
+│  ├── iv = randomBytes(12)          ← unique per save               │
+│  ├── cipher = createCipheriv("aes-256-gcm", key, iv)              │
+│  ├── encrypted = cipher.update(plaintext) + cipher.final()        │
+│  └── tag = cipher.getAuthTag()     ← 16-byte integrity check      │
+│         │                                                          │
+│         ▼                                                          │
+│  Write to ~/.rh-for-agents/session.enc (chmod 0o600)              │
+│  Binary format: [iv (12 bytes)] [tag (16 bytes)] [ciphertext]     │
+│                                                                    │
+│                                                                    │
+│  LOAD (decrypt)                                                    │
+│  ─────────────                                                     │
+│  Read ~/.rh-for-agents/session.enc → raw Buffer                   │
+│         │                                                          │
+│         ▼                                                          │
+│  Split binary: iv = raw[0:12], tag = raw[12:28], ct = raw[28:]    │
+│         │                                                          │
+│         ▼                                                          │
+│  getOrCreateKey() → retrieve 32-byte key from OS keychain          │
+│         │                                                          │
+│         ▼                                                          │
+│  AES-256-GCM decrypt:                                              │
+│  ├── decipher = createDecipheriv("aes-256-gcm", key, iv)          │
+│  ├── decipher.setAuthTag(tag)      ← verifies integrity            │
+│  └── plaintext = decipher.update(ct) + decipher.final()           │
+│         │                                                          │
+│         ▼                                                          │
+│  JSON.parse() → TokenData                                          │
+│                                                                    │
+│                                                                    │
+│  KEY MANAGEMENT                                                    │
+│  ──────────────                                                    │
+│  Key: OS Keychain (via keytar, dynamic import)                     │
+│  ├── service: "rh-for-agents"                                     │
+│  └── username: "encryption-key"                                    │
+│  Generated once via randomBytes(32). Never on filesystem.          │
+│                                                                    │
+│  Fallback: plaintext JSON if keytar unavailable                    │
+│  (CI environments, minimal installs)                               │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-`keytar` is an optional dependency (dynamic import). Without it, tokens are stored as plaintext JSON with a console warning.
+`keytar` is an optional dependency (dynamic import). Without it, tokens are stored as plaintext JSON with a console warning. The auth tag ensures tampered ciphertext is rejected on decrypt — if someone modifies `session.enc`, `decipher.final()` throws rather than returning garbage.
 
 ## HTTP Layer
 

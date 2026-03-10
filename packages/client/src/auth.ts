@@ -11,7 +11,7 @@ import { deleteTokens, loadTokens, saveTokens } from "./token-store.js";
 import * as urls from "./urls.js";
 
 const CLIENT_ID = "c82SH0WZOsabOXGP2sxqcj34FxkvfnWRZBKlBjFS";
-export const TOKEN_EXPIRY_SECONDS = 86400; // 24 hours
+const EXPIRATION_TIME = 734000; // ~8.5 days, matches pyrh
 
 export interface LoginResult {
   status: "logged_in";
@@ -32,11 +32,12 @@ async function attemptTokenRefresh(
   session: RobinhoodSession,
   opts: { refreshToken: string; deviceToken: string },
 ): Promise<LoginResult | null> {
-  const payload: Record<string, string> = {
-    client_id: CLIENT_ID,
+  const payload: Record<string, string | number> = {
     grant_type: "refresh_token",
     refresh_token: opts.refreshToken,
     scope: "internal",
+    client_id: CLIENT_ID,
+    expires_in: EXPIRATION_TIME,
     device_token: opts.deviceToken,
   };
   const resp = await session.post(urls.oauthToken(), payload);
