@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "typecheck": "tsc --noEmit --project packages/client/tsconfig.json && tsc --noEmit --project packages/server/tsconfig.json",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "@types/bun": "latest",
+    "msw": "^2.7.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}
