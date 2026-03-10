@@ -28,7 +28,12 @@ export class RobinhoodSession {
     delete this.headers.Authorization;
   }
 
-  getAuthToken(): string | undefined {
+  /**
+   * Returns the raw access token. ONLY for token revocation during logout.
+   * NEVER expose this value in API responses, logs, or error messages.
+   * @internal
+   */
+  getAuthTokenForRevocation(): string | undefined {
     const auth = this.headers.Authorization;
     return auth?.replace("Bearer ", "");
   }

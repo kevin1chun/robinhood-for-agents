@@ -1,6 +1,7 @@
 /** HTTP request helpers with pagination and dataType handling. */
 
 import { z } from "zod";
+import { redactTokens, scrubSensitiveKeys } from "../redact.js";
 import { APIError, NotFoundError, RateLimitError } from "./errors.js";
 import type { RobinhoodSession } from "./session.js";
 
@@ -104,16 +105,17 @@ async function raiseForStatus(response: Response): Promise<void> {
 
   let detail = "";
   if (body) {
-    detail = String(body.detail ?? body.error ?? JSON.stringify(body));
+    detail = redactTokens(String(body.detail ?? body.error ?? JSON.stringify(body)));
   }
 
   const msg = detail ? `HTTP ${status}: ${detail}` : `HTTP ${status}`;
+  const safeBody = body ? scrubSensitiveKeys(body) : undefined;
 
   if (status === 404) {
-    throw new NotFoundError(msg, { statusCode: status, responseBody: body });
+    throw new NotFoundError(msg, { statusCode: status, responseBody: safeBody });
   }
   if (status === 429) {
-    throw new RateLimitError(msg, { statusCode: status, responseBody: body });
+    throw new RateLimitError(msg, { statusCode: status, responseBody: safeBody });
   }
-  throw new APIError(msg, { statusCode: status, responseBody: body });
+  throw new APIError(msg, { statusCode: status, responseBody: safeBody });
 }

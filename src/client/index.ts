@@ -28,7 +28,9 @@ export {
   TokenExpiredError,
 } from "./errors.js";
 export { parseArray, parseOne } from "./http.js";
-export { deleteTokens, loadTokens, saveTokens } from "./token-store.js";
+// token-store functions (loadTokens, saveTokens, deleteTokens) are intentionally
+// NOT exported — they are internal implementation details. Exposing them risks
+// leaking raw access/refresh tokens to LLMs that write and execute code.
 
 export type {
   Account,

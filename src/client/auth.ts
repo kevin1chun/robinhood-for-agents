@@ -16,7 +16,6 @@ const EXPIRATION_TIME = 734000; // ~8.5 days, matches pyrh
 export interface LoginResult {
   status: "logged_in";
   method: "cached" | "refreshed";
-  device_token: string;
 }
 
 async function validateToken(session: RobinhoodSession): Promise<boolean> {
@@ -59,7 +58,7 @@ async function attemptTokenRefresh(
     token_type: (data.token_type as string) ?? "Bearer",
     device_token: opts.deviceToken,
   });
-  return { status: "logged_in", method: "refreshed", device_token: opts.deviceToken };
+  return { status: "logged_in", method: "refreshed" };
 }
 
 export async function restoreSession(session: RobinhoodSession): Promise<LoginResult> {
@@ -71,11 +70,7 @@ export async function restoreSession(session: RobinhoodSession): Promise<LoginRe
   // Try the cached access token
   session.setAuth(tokens.access_token);
   if (await validateToken(session)) {
-    return {
-      status: "logged_in",
-      method: "cached",
-      device_token: tokens.device_token ?? "",
-    };
+    return { status: "logged_in", method: "cached" };
   }
 
   // Token invalid — try refresh
@@ -96,7 +91,7 @@ export async function restoreSession(session: RobinhoodSession): Promise<LoginRe
 }
 
 export async function logout(session: RobinhoodSession): Promise<void> {
-  const token = session.getAuthToken();
+  const token = session.getAuthTokenForRevocation();
   if (token) {
     try {
       await session.post(urls.oauthRevoke(), { client_id: CLIENT_ID, token });

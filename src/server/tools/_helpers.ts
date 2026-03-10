@@ -1,14 +1,15 @@
 /** Shared helpers for MCP tool handlers. */
 
+import { redactTokens } from "../../redact.js";
 import { getClient } from "../../client/index.js";
 
 export function text(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data) }] };
+  return { content: [{ type: "text" as const, text: redactTokens(JSON.stringify(data)) }] };
 }
 
 export function textError(msg: string) {
   return {
-    content: [{ type: "text" as const, text: JSON.stringify({ error: msg }) }],
+    content: [{ type: "text" as const, text: redactTokens(JSON.stringify({ error: msg })) }],
     isError: true as const,
   };
 }

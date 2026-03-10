@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import * as p from "@clack/prompts";
-import { loadTokens } from "../../client/index.js";
+import { loadTokens } from "../../client/token-store.js";
 import { claudeCode } from "./agents/claude-code.js";
 import { codex } from "./agents/codex.js";
 import { openclaw } from "./agents/openclaw.js";

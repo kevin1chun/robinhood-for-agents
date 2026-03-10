@@ -23,7 +23,7 @@ function mockSession(): RobinhoodSession {
     delete: vi.fn(),
     setAuth: vi.fn(),
     clearAuth: vi.fn(),
-    getAuthToken: vi.fn(),
+    getAuthTokenForRevocation: vi.fn(),
   } as unknown as RobinhoodSession;
 }
 
@@ -56,7 +56,6 @@ describe("restoreSession", () => {
     const result = await restoreSession(session);
 
     expect(result.method).toBe("cached");
-    expect(result.device_token).toBe("cached-dev");
     expect(session.setAuth).toHaveBeenCalledWith("cached-tok");
   });
 
@@ -125,7 +124,7 @@ describe("restoreSession", () => {
 describe("logout", () => {
   it("revokes token and clears session", async () => {
     const session = mockSession();
-    (session.getAuthToken as Mock).mockReturnValue("tok123");
+    (session.getAuthTokenForRevocation as Mock).mockReturnValue("tok123");
     (session.post as Mock).mockResolvedValueOnce(jsonResponse({}));
 
     await logout(session);
@@ -137,7 +136,7 @@ describe("logout", () => {
 
   it("clears session even if revoke fails", async () => {
     const session = mockSession();
-    (session.getAuthToken as Mock).mockReturnValue("tok123");
+    (session.getAuthTokenForRevocation as Mock).mockReturnValue("tok123");
     (session.post as Mock).mockRejectedValueOnce(new Error("network error"));
 
     await logout(session);

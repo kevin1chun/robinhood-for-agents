@@ -15,12 +15,12 @@ describe("RobinhoodSession", () => {
 
   it("setAuth and clearAuth manage authorization", () => {
     const session = createSession();
-    expect(session.getAuthToken()).toBeUndefined();
+    expect(session.getAuthTokenForRevocation()).toBeUndefined();
 
     session.setAuth("test-token");
-    expect(session.getAuthToken()).toBe("test-token");
+    expect(session.getAuthTokenForRevocation()).toBe("test-token");
 
     session.clearAuth();
-    expect(session.getAuthToken()).toBeUndefined();
+    expect(session.getAuthTokenForRevocation()).toBeUndefined();
   });
 });

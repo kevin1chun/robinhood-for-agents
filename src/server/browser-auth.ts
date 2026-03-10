@@ -8,7 +8,8 @@
 
 import type { Browser } from "playwright-core";
 import { chromium, type Request, type Response } from "playwright-core";
-import { getClient, saveTokens } from "../client/index.js";
+import { getClient } from "../client/index.js";
+import { saveTokens } from "../client/token-store.js";
 
 const LOGIN_URL = "https://robinhood.com/login";
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
