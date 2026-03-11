@@ -101,15 +101,15 @@ Add to your MCP client's config (e.g. `~/Library/Application Support/Claude/clau
 ```
 </details>
 
-## Authenticate
-
-Start your agent and say "setup robinhood" (or call `robinhood_browser_login` directly). Chrome will open to the real Robinhood login page — log in with your credentials and MFA. The session is cached and auto-restores for ~24 hours.
-
 ## Example
 
 > "Buy 1 50-delta SPX call expiring tomorrow"
 
 ![SPX options chain with greeks and order summary](docs/images/spx-options-example.png)
+
+## Authenticate
+
+Start your agent and say "setup robinhood" (or call `robinhood_browser_login` directly). Chrome will open to the real Robinhood login page — log in with your credentials and MFA. The session is cached and auto-restores for ~24 hours.
 
 ## MCP Tools (18)
 
@@ -181,11 +181,115 @@ const portfolio = await client.buildHoldings();
 
 ## Authentication
 
-Sessions are cached to `~/.rh-for-agents/session.enc` (AES-256-GCM encrypted, key in OS keychain). Authentication uses browser-based login — `robinhood_browser_login` opens Chrome to the real Robinhood login page where you handle MFA natively. After initial login, subsequent authentication is automatic until the token expires (~24 hours).
-
 **MCP**: Call `robinhood_browser_login` to open Chrome and log in (works with all agents). After that, all tools auto-restore the cached session.
 
 **Skills**: Run the `robinhood-setup` skill for guided browser login (Claude Code and OpenClaw).
+
+### Full Auth Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  robinhood_browser_login              restoreSession()                  │
+│  (first-time / expired)               (every tool call)                │
+│          │                                    │                         │
+│          ▼                                    ▼                         │
+│  ┌───────────────────┐               loadTokens()                      │
+│  │ Playwright launches│               Bun.secrets.get() from           │
+│  │ system Chrome      │               OS keychain                      │
+│  │ (headless: false)  │               (macOS Keychain Services)        │
+│  └────────┬──────────┘                        │                        │
+│           │                                   │                         │
+│           ▼                                   ▼                         │
+│  ┌───────────────────┐               Set Authorization header          │
+│  │ Navigate to        │               Validate: GET /positions/        │
+│  │ robinhood.com/login│                       │                         │
+│  └────────┬──────────┘                  ┌─────┴─────┐                  │
+│           │                           Valid?      Invalid?             │
+│           ▼                             │           │                   │
+│  ┌───────────────────┐            return        ┌──┘                   │
+│  │ User logs in       │           "cached"       │                      │
+│  │ (email, password,  │                          ▼                      │
+│  │  MFA push/SMS)     │              POST /oauth2/token/               │
+│  └────────┬──────────┘              (grant_type: refresh_token,        │
+│           │                          expires_in: 734000)               │
+│           ▼                                 │                           │
+│  ┌───────────────────────────┐       ┌──────┴──────┐                   │
+│  │ Robinhood frontend calls   │    Success?      Failure?             │
+│  │ POST /oauth2/token         │       │              │                  │
+│  │                            │  saveTokens()     throw                │
+│  │ Playwright intercepts:     │  return          AuthError             │
+│  │  request  → device_token   │  "refreshed"     "Use browser_login"  │
+│  │  response → access_token,  │                                        │
+│  │             refresh_token   │                                        │
+│  └────────┬──────────────────┘                                         │
+│           │                                                             │
+│           ▼                                                             │
+│  saveTokens() ──► token-store.ts                                       │
+│           │       Bun.secrets.set() → OS keychain                      │
+│           │       (tokens never written to disk)                       │
+│           │                                                            │
+│           │                                                             │
+│           ▼                                                             │
+│  restoreSession() ──► client ready                                     │
+│  getAccountProfile() → account_hint                                    │
+│  Close browser                                                         │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+The left path is the initial login (browser-based, user-interactive). The right path is the session restore (automatic, every tool call). When the cached access token is invalid, it attempts a silent refresh using the stored `refresh_token` (with `expires_in: 734000` ~8.5 days). If refresh also fails, the user is directed back to browser login.
+
+### Why Browser-Based Auth
+
+The browser login is purely passive — Playwright never clicks buttons, fills forms, or predicts the login flow. It opens a real Chrome window, the user completes login entirely on their own (including whatever MFA Robinhood requires), and Playwright only intercepts the network traffic:
+
+- `page.on("request")` captures `device_token` from POST body to `/oauth2/token`
+- `page.on("response")` captures `access_token` + `refresh_token` from the 200 response
+
+This design is resilient to Robinhood UI changes — it doesn't depend on any DOM selectors, page structure, or login step ordering. As long as the OAuth token endpoint exists, the interception works. `playwright-core` is used (not `playwright`) so no browser binary is bundled — it drives the user's system Chrome.
+
+### Encrypted Token Storage
+
+```
+┌─ token-store.ts ──────────────────────────────────────────────────┐
+│                                                                    │
+│  SAVE                                                              │
+│  ────                                                              │
+│  TokenData (JSON):                                                 │
+│  {access_token, refresh_token, token_type, device_token, saved_at} │
+│         │                                                          │
+│         ▼                                                          │
+│  JSON.stringify()                                                  │
+│         │                                                          │
+│         ▼                                                          │
+│  Bun.secrets.set("rh-for-agents", "session-tokens", json)         │
+│  → OS encrypts and stores in keychain                              │
+│  → No file written to disk                                         │
+│                                                                    │
+│                                                                    │
+│  LOAD                                                              │
+│  ────                                                              │
+│  Bun.secrets.get("rh-for-agents", "session-tokens")               │
+│         │                                                          │
+│         ▼                                                          │
+│  JSON.parse() → TokenData                                          │
+│                                                                    │
+│                                                                    │
+│  STORAGE                                                           │
+│  ───────                                                           │
+│  Primary: OS Keychain via Bun.secrets                              │
+│  ├── macOS: Keychain Services                                      │
+│  ├── Linux: libsecret (GNOME Keyring, KWallet)                    │
+│  └── Windows: Credential Manager                                   │
+│  Tokens never touch the filesystem.                                │
+│                                                                    │
+│  Fallback: plaintext JSON (~/.rh-for-agents/session.json)          │
+│  (CI environments, minimal installs without keychain)              │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+`Bun.secrets` stores tokens directly in the OS keychain — no intermediate encryption layer needed since the keychain itself provides encryption, access control, and tamper resistance. When `Bun.secrets` is unavailable (CI, headless servers), tokens fall back to a plaintext JSON file with a console warning.
 
 ## Development
 
