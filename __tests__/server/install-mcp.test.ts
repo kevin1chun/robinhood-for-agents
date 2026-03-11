@@ -12,15 +12,28 @@ describe("installMcp", () => {
     installMcp();
 
     // First call: remove existing
-    expect(execFileSyncMock).toHaveBeenCalledWith("claude", ["mcp", "remove", "robinhood-for-agents"], {
-      stdio: "pipe",
-    });
+    expect(execFileSyncMock).toHaveBeenCalledWith(
+      "claude",
+      ["mcp", "remove", "robinhood-for-agents"],
+      {
+        stdio: "pipe",
+      },
+    );
 
     // Second call: add new
     const addCall = execFileSyncMock.mock.calls[1] as unknown[];
     expect(addCall[0]).toBe("claude");
     expect(addCall[1]).toEqual(
-      expect.arrayContaining(["mcp", "add", "-s", "user", "robinhood-for-agents", "--", "bun", "run"]),
+      expect.arrayContaining([
+        "mcp",
+        "add",
+        "-s",
+        "user",
+        "robinhood-for-agents",
+        "--",
+        "bun",
+        "run",
+      ]),
     );
     expect(addCall[2]).toEqual({ stdio: "pipe" });
   });
