@@ -42,11 +42,7 @@ Skills use three-layer progressive disclosure:
 3. **client-api.md** — TypeScript client library patterns (advanced, loaded on demand)
 
 Available skills:
-- `robinhood-setup` - Initial auth setup
-- `robinhood-portfolio` - Portfolio and holdings
-- `robinhood-research` - Stock research and analysis
-- `robinhood-trade` - Order placement with safety checks
-- `robinhood-options` - Options chain analysis
+- `robinhood-for-agents` - Unified skill: auth, portfolio, research, trading, options (dual-mode: MCP + client API)
 
 ## Client Patterns
 ```typescript

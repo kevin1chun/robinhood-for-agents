@@ -4,13 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { installSkills } from "../../src/server/cli/install-skills.js";
 
-const EXPECTED_SKILLS = [
-  "robinhood-options",
-  "robinhood-portfolio",
-  "robinhood-research",
-  "robinhood-setup",
-  "robinhood-trade",
-];
+const EXPECTED_SKILLS = ["robinhood-for-agents"];
 
 describe("installSkills", () => {
   const tempDirs: string[] = [];
@@ -63,20 +57,12 @@ describe("installSkills", () => {
     expect(installed).toEqual(EXPECTED_SKILLS);
   });
 
-  it("copies reference.md files for skills that have them", () => {
+  it("copies reference.md and client-api.md for the unified skill", () => {
     const target = makeTempDir();
     installSkills(target);
 
-    const skillsDir = join(target, ".claude", "skills");
-    const withReference = [
-      "robinhood-portfolio",
-      "robinhood-research",
-      "robinhood-trade",
-      "robinhood-options",
-    ];
-
-    for (const skill of withReference) {
-      expect(existsSync(join(skillsDir, skill, "reference.md"))).toBe(true);
-    }
+    const skillDir = join(target, ".claude", "skills", "robinhood-for-agents");
+    expect(existsSync(join(skillDir, "reference.md"))).toBe(true);
+    expect(existsSync(join(skillDir, "client-api.md"))).toBe(true);
   });
 });
