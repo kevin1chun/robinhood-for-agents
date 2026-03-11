@@ -7,6 +7,7 @@
 Robinhood for AI agents — an MCP server with 18 structured tools and a standalone TypeScript client, in a single package.
 
 - **18 MCP tools** for any MCP-compatible AI agent
+- **5 trading skills** for guided workflows (Claude Code, OpenClaw)
 - **Standalone API client** (~50 async methods) for programmatic use
 
 Compatible with **Claude Code**, **Codex**, **OpenClaw**, and any MCP-compatible agent.
