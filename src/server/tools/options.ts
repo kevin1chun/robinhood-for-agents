@@ -67,7 +67,12 @@ export function registerOptionsTools(server: McpServer): void {
         }
 
         if (expiration_date && strike_price != null && option_type) {
-          const marketData = await rh.getOptionMarketData(s, expiration_date, strike_price, option_type);
+          const marketData = await rh.getOptionMarketData(
+            s,
+            expiration_date,
+            strike_price,
+            option_type,
+          );
           result.market_data = marketData;
         }
 

@@ -9,7 +9,7 @@ vi.mock("node:fs", () => ({
   unlinkSync: vi.fn(),
 }));
 
-import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import type { Mock } from "vitest";
 import { deleteTokens, loadTokens, saveTokens } from "../../src/client/token-store.js";
 

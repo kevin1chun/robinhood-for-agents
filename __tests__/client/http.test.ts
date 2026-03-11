@@ -62,7 +62,9 @@ describe("requestGet", () => {
       jsonResponse({ results: [1, 2], next: "https://api.robinhood.com/positions/?page=2" }),
       jsonResponse({ results: [3, 4], next: null }),
     ]);
-    const data = await requestGet(session, "https://api.robinhood.com/positions/", { dataType: "pagination" });
+    const data = await requestGet(session, "https://api.robinhood.com/positions/", {
+      dataType: "pagination",
+    });
     expect(data).toEqual([1, 2, 3, 4]);
   });
 

@@ -28,9 +28,7 @@ const SENSITIVE_KEYS = new Set([
 ]);
 
 /** Deep-clone an object, replacing known sensitive key values with [REDACTED]. */
-export function scrubSensitiveKeys(
-  obj: Record<string, unknown>,
-): Record<string, unknown> {
+export function scrubSensitiveKeys(obj: Record<string, unknown>): Record<string, unknown> {
   const scrubbed: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     if (SENSITIVE_KEYS.has(key)) {

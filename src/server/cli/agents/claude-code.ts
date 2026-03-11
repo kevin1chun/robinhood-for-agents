@@ -11,9 +11,13 @@ function installMcp(binPath: string): void {
     // not found — fine
   }
 
-  execFileSync("claude", ["mcp", "add", "-s", "user", "rh-for-agents", "--", "bun", "run", binPath], {
-    stdio: "pipe",
-  });
+  execFileSync(
+    "claude",
+    ["mcp", "add", "-s", "user", "rh-for-agents", "--", "bun", "run", binPath],
+    {
+      stdio: "pipe",
+    },
+  );
 }
 
 function installSkills(skillsSource: string): void {

@@ -525,7 +525,9 @@ export class RobinhoodClient {
     const isFractional = !Number.isInteger(quantity);
     if (isFractional) {
       if (opts?.limitPrice != null || opts?.stopPrice != null || opts?.trailAmount != null) {
-        throw new Error("Fractional orders must be market orders (no limit, stop, or trailing stop)");
+        throw new Error(
+          "Fractional orders must be market orders (no limit, stop, or trailing stop)",
+        );
       }
     }
 

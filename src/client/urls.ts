@@ -11,7 +11,9 @@ const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9_.:@-]+$/;
 /** Reject path segments that could cause path traversal or injection. */
 function safeSegment(value: string, label: string): string {
   if (!SAFE_PATH_SEGMENT.test(value)) {
-    throw new Error(`Invalid ${label}: must contain only alphanumeric, hyphen, underscore, or dot characters`);
+    throw new Error(
+      `Invalid ${label}: must contain only alphanumeric, hyphen, underscore, or dot characters`,
+    );
   }
   return value;
 }
@@ -243,7 +245,6 @@ export function cancelStockOrder(orderId: string): string {
 export function cancelOptionOrder(orderId: string): string {
   return `${API_BASE}/options/orders/${orderId}/cancel/`;
 }
-
 
 export function cancelCryptoOrder(orderId: string): string {
   return `${NUMMUS_BASE}/orders/${orderId}/cancel/`;

@@ -1,7 +1,7 @@
 /** Shared helpers for MCP tool handlers. */
 
-import { redactTokens } from "../../redact.js";
 import { getClient } from "../../client/index.js";
+import { redactTokens } from "../../redact.js";
 
 export function text(data: unknown) {
   return { content: [{ type: "text" as const, text: redactTokens(JSON.stringify(data)) }] };

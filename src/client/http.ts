@@ -6,10 +6,7 @@ import { APIError, NotFoundError, RateLimitError } from "./errors.js";
 import type { RobinhoodSession } from "./session.js";
 import { API_BASE, NUMMUS_BASE } from "./urls.js";
 
-const TRUSTED_ORIGINS = new Set([
-  new URL(API_BASE).origin,
-  new URL(NUMMUS_BASE).origin,
-]);
+const TRUSTED_ORIGINS = new Set([new URL(API_BASE).origin, new URL(NUMMUS_BASE).origin]);
 
 /** Reject URLs that point outside trusted Robinhood domains. */
 function assertTrustedUrl(url: string): void {
