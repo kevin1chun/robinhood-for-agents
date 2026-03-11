@@ -59,7 +59,7 @@ await rh.restoreSession();
 ```
 - All methods are `async` (native `fetch` under the hood)
 - Multi-account is first-class: every account-scoped method accepts `accountNumber`
-- Session cached in OS keychain via `Bun.secrets` (macOS Keychain Services); plaintext fallback for CI
+- Session cached in OS keychain via `Bun.secrets` (macOS Keychain Services) — no plaintext fallback, no tokens on disk
 - Token refresh via `refresh_token` + `device_token` when access token expires
 - Proper exceptions: `AuthenticationError`, `APIError`
 - **Do NOT use `phoenix.robinhood.com`** — it rejects TLS. Use `api.robinhood.com` endpoints only.

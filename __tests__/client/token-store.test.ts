@@ -1,21 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock node:fs before importing the module
-vi.mock("node:fs", () => ({
-  existsSync: vi.fn(),
-  mkdirSync: vi.fn(),
-  writeFileSync: vi.fn(),
-  renameSync: vi.fn(),
-  unlinkSync: vi.fn(),
-}));
-
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import type { Mock } from "vitest";
 import { deleteTokens, loadTokens, saveTokens } from "../../src/client/token-store.js";
-
-const mockExistsSync = existsSync as Mock;
-const mockWriteFileSync = writeFileSync as Mock;
-const mockUnlinkSync = unlinkSync as Mock;
 
 const sampleTokens = {
   access_token: "tok123",
@@ -52,7 +38,7 @@ describe("token-store", () => {
     vi.restoreAllMocks();
   });
 
-  describe("saveTokens (keychain available)", () => {
+  describe("saveTokens", () => {
     it("stores tokens in Bun.secrets", async () => {
       const result = await saveTokens(sampleTokens);
 
@@ -71,27 +57,9 @@ describe("token-store", () => {
       expect(parsed.saved_at).toBeTypeOf("number");
     });
 
-    it("does not write to filesystem when keychain available", async () => {
-      await saveTokens(sampleTokens);
-      expect(mockWriteFileSync).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("saveTokens (keychain unavailable)", () => {
-    it("falls back to plaintext JSON file", async () => {
-      mockSecrets.get.mockRejectedValueOnce(new Error("unavailable"));
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      await saveTokens(sampleTokens);
-
-      expect(mkdirSync).toHaveBeenCalled();
-      expect(mockWriteFileSync).toHaveBeenCalled();
-
-      const writtenData = mockWriteFileSync.mock.calls[0]?.[1];
-      const parsed = JSON.parse(writtenData);
-      expect(parsed.access_token).toBe("tok123");
-
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Bun.secrets unavailable"));
+    it("throws when Bun.secrets is unavailable", async () => {
+      mockSecrets.set.mockRejectedValueOnce(new Error("unavailable"));
+      await expect(saveTokens(sampleTokens)).rejects.toThrow("unavailable");
     });
   });
 
@@ -106,32 +74,32 @@ describe("token-store", () => {
     });
 
     it("returns null when no tokens stored", async () => {
-      mockExistsSync.mockReturnValue(false);
       const result = await loadTokens();
       expect(result).toBeNull();
     });
 
     it("returns null for invalid JSON in keychain", async () => {
       mockSecretsStore.set("robinhood-for-agents:session-tokens", "not json");
-      mockExistsSync.mockReturnValue(false);
-
       const result = await loadTokens();
       expect(result).toBeNull();
     });
 
     it("returns null for JSON without access_token", async () => {
       mockSecretsStore.set("robinhood-for-agents:session-tokens", JSON.stringify({ foo: "bar" }));
-      mockExistsSync.mockReturnValue(false);
+      const result = await loadTokens();
+      expect(result).toBeNull();
+    });
 
+    it("returns null when Bun.secrets throws", async () => {
+      mockSecrets.get.mockRejectedValueOnce(new Error("keychain locked"));
       const result = await loadTokens();
       expect(result).toBeNull();
     });
   });
 
   describe("deleteTokens", () => {
-    it("deletes from keychain and cleans up fallback file", async () => {
+    it("deletes from keychain", async () => {
       mockSecretsStore.set("robinhood-for-agents:session-tokens", "data");
-      mockExistsSync.mockReturnValue(true);
 
       await deleteTokens();
 
@@ -139,11 +107,9 @@ describe("token-store", () => {
         service: "robinhood-for-agents",
         name: "session-tokens",
       });
-      expect(mockUnlinkSync).toHaveBeenCalled();
     });
 
     it("does not throw when nothing to delete", async () => {
-      mockExistsSync.mockReturnValue(false);
       await expect(deleteTokens()).resolves.toBeUndefined();
     });
   });

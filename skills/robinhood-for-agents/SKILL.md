@@ -8,7 +8,8 @@ install:
     package: robinhood-for-agents
     bins: [robinhood-for-agents]
 requires:
-  bins: [bun]
+  bins: [bun, google-chrome]
+metadata: {"credentials":"OAuth tokens stored in OS keychain via Bun.secrets (macOS Keychain Services, Linux libsecret, Windows Credential Manager). No tokens on disk. Browser login captures tokens via Playwright intercepting network traffic — no DOM interaction. Tokens expire ~24h.","chrome":"Required only for initial login (bunx robinhood-for-agents login). Not needed for subsequent API calls."}
 ---
 
 # robinhood-for-agents

@@ -37,7 +37,7 @@ Confirm to the user that authentication is complete.
 ## Security Warning
 After successful login, **always** remind the user:
 
-> **The session file at `~/.robinhood-for-agents/session.enc` contains encrypted Robinhood OAuth tokens. The encryption key is stored in the OS keychain (AES-256-GCM via node:crypto). Anyone with access to this machine can decrypt them. Tokens expire after ~24 hours. Never copy these files to untrusted locations.**
+> **Robinhood OAuth tokens are stored in the OS keychain (macOS Keychain Services, Linux libsecret, Windows Credential Manager) via Bun.secrets. No tokens are written to disk. Tokens expire after ~24 hours. Anyone with access to this machine's keychain can read them.**
 
 ## Notes
 - No credentials (username/password) pass through the tool layer — login happens on the real Robinhood website
