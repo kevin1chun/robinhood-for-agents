@@ -4,7 +4,7 @@
  * Tokens are stored as JSON directly in the OS keychain
  * (macOS Keychain Services, Linux libsecret, Windows Credential Manager).
  *
- * Falls back to plaintext JSON at ~/.rh-for-agents/session.json
+ * Falls back to plaintext JSON at ~/.robinhood-for-agents/session.json
  * if Bun.secrets is unavailable (e.g. in CI or minimal environments).
  */
 
@@ -12,10 +12,10 @@ import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from "no
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const KEYRING_SERVICE = "rh-for-agents";
+const KEYRING_SERVICE = "robinhood-for-agents";
 const KEYRING_NAME = "session-tokens";
 
-const TOKEN_DIR = join(homedir(), ".rh-for-agents");
+const TOKEN_DIR = join(homedir(), ".robinhood-for-agents");
 const FALLBACK_FILE = join(TOKEN_DIR, "session.json");
 
 export interface TokenData {
@@ -61,7 +61,7 @@ export async function saveTokens(tokens: Omit<TokenData, "saved_at">): Promise<s
   }
 
   // Fallback: plaintext JSON file (atomic write with correct permissions from creation)
-  console.warn("[rh-for-agents] Bun.secrets unavailable — saving tokens as plaintext JSON");
+  console.warn("[robinhood-for-agents] Bun.secrets unavailable — saving tokens as plaintext JSON");
   mkdirSync(TOKEN_DIR, { recursive: true, mode: 0o700 });
   const tmpFile = `${FALLBACK_FILE}.tmp`;
   writeFileSync(tmpFile, json, { mode: 0o600 });

@@ -1,4 +1,4 @@
-/** rh-for-agents — AI-native Robinhood trading interface. */
+/** robinhood-for-agents — AI-native Robinhood trading interface. */
 
 // Client API (re-export everything from the client barrel)
 export * from "./client/index.js";

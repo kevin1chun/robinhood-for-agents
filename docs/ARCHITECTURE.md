@@ -1,4 +1,4 @@
-# rh-for-agents — Architecture & Design
+# robinhood-for-agents — Architecture & Design
 
 ## System Overview
 
@@ -20,7 +20,7 @@
 │          ▼                            ▼                         │
 │   ┌───────────────────────────────────────────┐                 │
 │   │      src/client/                          │                 │
-│   │      rh-for-agents                        │                 │
+│   │      robinhood-for-agents                        │                 │
 │   │  ┌─────────────────────────────────────┐  │                 │
 │   │  │  session: RobinhoodSession (fetch)  │  │                 │
 │   │  │  loggedIn: boolean                  │  │                 │
@@ -55,7 +55,7 @@
 ## File Map
 
 ```
-src/client/                    <- rh-for-agents client library
+src/client/                    <- robinhood-for-agents client library
 ├── index.ts                   <- Exports: RobinhoodClient, getClient(), login()
 ├── client.ts                  <- RobinhoodClient class (~50 async methods)
 ├── auth.ts                    <- Session restore + token refresh
@@ -67,7 +67,7 @@ src/client/                    <- rh-for-agents client library
 ├── types.ts                   <- Zod schemas + inferred types
 └── branded.ts                 <- AccountNumber, OrderId, etc. branded types
 
-src/server/                    <- rh-for-agents MCP server
+src/server/                    <- robinhood-for-agents MCP server
 ├── index.ts                   <- main() export, StdioServerTransport
 ├── server.ts                  <- McpServer creation + tool registration
 ├── browser-auth.ts            <- Playwright browser login capture
@@ -168,14 +168,14 @@ This design is resilient to Robinhood UI changes — it doesn't depend on any DO
 │  JSON.stringify()                                                  │
 │         │                                                          │
 │         ▼                                                          │
-│  Bun.secrets.set("rh-for-agents", "session-tokens", json)         │
+│  Bun.secrets.set("robinhood-for-agents", "session-tokens", json)         │
 │  → OS encrypts and stores in keychain                              │
 │  → No file written to disk                                         │
 │                                                                    │
 │                                                                    │
 │  LOAD                                                              │
 │  ────                                                              │
-│  Bun.secrets.get("rh-for-agents", "session-tokens")               │
+│  Bun.secrets.get("robinhood-for-agents", "session-tokens")               │
 │         │                                                          │
 │         ▼                                                          │
 │  JSON.parse() → TokenData                                          │
@@ -189,7 +189,7 @@ This design is resilient to Robinhood UI changes — it doesn't depend on any DO
 │  └── Windows: Credential Manager                                   │
 │  Tokens never touch the filesystem.                                │
 │                                                                    │
-│  Fallback: plaintext JSON (~/.rh-for-agents/session.json)          │
+│  Fallback: plaintext JSON (~/.robinhood-for-agents/session.json)          │
 │  (CI environments, minimal installs without keychain)              │
 └────────────────────────────────────────────────────────────────────┘
 ```

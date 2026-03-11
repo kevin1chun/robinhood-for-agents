@@ -50,16 +50,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **MCP Server** with 18 structured tools for any MCP-compatible AI agent
-- **Standalone client library** (`rh-for-agents`) with ~50 async methods
+- **Standalone client library** (`robinhood-for-agents`) with ~50 async methods
 - **5 Claude Code skills**: setup, portfolio, research, trade, options
 - Browser-based authentication via Playwright (Chrome)
 - AES-256-GCM encrypted session storage with OS keychain key management
 - Multi-account support (first-class across all account-scoped methods)
-- Interactive onboarding TUI (`rh-for-agents onboard`)
-- One-command install for Claude Code (`rh-for-agents install`)
+- Interactive onboarding TUI (`robinhood-for-agents onboard`)
+- One-command install for Claude Code (`robinhood-for-agents install`)
 - Safety controls: blocked fund transfers, blocked bulk cancels, explicit order parameters
 - Support for Claude Code, Codex, and OpenClaw agents
 
-[0.4.0]: https://github.com/kevin1chun/rh-for-agents/compare/v0.2.0...v0.4.0
-[0.2.0]: https://github.com/kevin1chun/rh-for-agents/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/kevin1chun/rh-for-agents/releases/tag/v0.1.0
+[0.4.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.2.0...v0.4.0
+[0.2.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/kevin1chun/robinhood-for-agents/releases/tag/v0.1.0

@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { claudeCode } from "./agents/claude-code.js";
 
 export function installMcp(): void {
-  const binPath = resolve(import.meta.dirname, "../../../bin/rh-for-agents.ts");
+  const binPath = resolve(import.meta.dirname, "../../../bin/robinhood-for-agents.ts");
 
   claudeCode.installMcp?.(binPath);
 

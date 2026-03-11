@@ -15,7 +15,7 @@ const agentMap: Record<AgentId, AgentMeta> = {
 };
 
 export async function onboard(preselectedAgent?: AgentId): Promise<void> {
-  p.intro("rh-for-agents setup");
+  p.intro("robinhood-for-agents setup");
 
   // --- Agent selection ---
   let agentId: AgentId;
@@ -63,7 +63,7 @@ export async function onboard(preselectedAgent?: AgentId): Promise<void> {
   // --- Confirm installation scope ---
   const installItems: string[] = [];
   if (agent.installMcp) {
-    installItems.push("Register rh-for-agents MCP server");
+    installItems.push("Register robinhood-for-agents MCP server");
   }
   if (agent.supportsSkills) {
     installItems.push("Install 5 trading skills");
@@ -84,7 +84,7 @@ export async function onboard(preselectedAgent?: AgentId): Promise<void> {
   }
 
   // --- Install MCP ---
-  const binPath = resolve(import.meta.dirname, "../../../bin/rh-for-agents.ts");
+  const binPath = resolve(import.meta.dirname, "../../../bin/robinhood-for-agents.ts");
 
   if (agent.installMcp) {
     const mcpSpinner = p.spinner();

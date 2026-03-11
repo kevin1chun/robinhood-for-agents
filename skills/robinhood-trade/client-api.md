@@ -1,13 +1,13 @@
 # Trade — Client API
 
-TypeScript methods from `rh-for-agents` for programmatic order management.
+TypeScript methods from `robinhood-for-agents` for programmatic order management.
 
 **Safety**: Always confirm with the user before calling order methods.
 
 ## Quick Start
 
 ```typescript
-import { RobinhoodClient } from "rh-for-agents";
+import { RobinhoodClient } from "robinhood-for-agents";
 
 const client = new RobinhoodClient();
 await client.restoreSession();

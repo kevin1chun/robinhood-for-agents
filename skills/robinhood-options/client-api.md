@@ -1,11 +1,11 @@
 # Options — Client API
 
-TypeScript methods from `rh-for-agents` for programmatic options analysis.
+TypeScript methods from `robinhood-for-agents` for programmatic options analysis.
 
 ## Quick Start
 
 ```typescript
-import { RobinhoodClient } from "rh-for-agents";
+import { RobinhoodClient } from "robinhood-for-agents";
 
 const client = new RobinhoodClient();
 await client.restoreSession();

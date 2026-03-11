@@ -1,11 +1,11 @@
-# rh-for-agents
+# robinhood-for-agents
 
 AI-native Robinhood trading interface — single npm package with MCP server + TypeScript client.
 
 ## Project Structure
 - `src/client/` — Robinhood API client (~50 async methods)
 - `src/server/` — MCP server with 18 tools
-- `bin/` — CLI entry point (`rh-for-agents`)
+- `bin/` — CLI entry point (`robinhood-for-agents`)
 - `skills/` — Claude Code skills for interactive use
 - `docs/` — Architecture, access controls, use cases, contributing
 
@@ -21,7 +21,7 @@ AI-native Robinhood trading interface — single npm package with MCP server + T
 ## Running the MCP Server
 ```bash
 bun install
-bun bin/rh-for-agents.ts
+bun bin/robinhood-for-agents.ts
 ```
 
 ## Development
@@ -34,7 +34,7 @@ npx vitest run      # all tests (use vitest, NOT bun test)
 ## Skills
 Canonical skill source is `skills/`. Local `.claude/skills/` contains symlinks for development.
 
-Install MCP server + skills: `bun bin/rh-for-agents.ts install`
+Install MCP server + skills: `bun bin/robinhood-for-agents.ts install`
 
 Skills use three-layer progressive disclosure:
 1. **SKILL.md** — MCP tool orchestration (default)
@@ -50,7 +50,7 @@ Available skills:
 
 ## Client Patterns
 ```typescript
-import { RobinhoodClient, getClient } from "rh-for-agents";
+import { RobinhoodClient, getClient } from "robinhood-for-agents";
 
 // Class-based
 const client = new RobinhoodClient();

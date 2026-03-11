@@ -58,12 +58,12 @@ describe("token-store", () => {
 
       expect(result).toBe("keychain");
       expect(mockSecrets.set).toHaveBeenCalledWith(
-        "rh-for-agents",
+        "robinhood-for-agents",
         "session-tokens",
         expect.any(String),
       );
 
-      const stored = mockSecretsStore.get("rh-for-agents:session-tokens");
+      const stored = mockSecretsStore.get("robinhood-for-agents:session-tokens");
       expect(stored).toBeDefined();
       const parsed = JSON.parse(stored ?? "");
       expect(parsed.access_token).toBe("tok123");
@@ -112,7 +112,7 @@ describe("token-store", () => {
     });
 
     it("returns null for invalid JSON in keychain", async () => {
-      mockSecretsStore.set("rh-for-agents:session-tokens", "not json");
+      mockSecretsStore.set("robinhood-for-agents:session-tokens", "not json");
       mockExistsSync.mockReturnValue(false);
 
       const result = await loadTokens();
@@ -120,7 +120,7 @@ describe("token-store", () => {
     });
 
     it("returns null for JSON without access_token", async () => {
-      mockSecretsStore.set("rh-for-agents:session-tokens", JSON.stringify({ foo: "bar" }));
+      mockSecretsStore.set("robinhood-for-agents:session-tokens", JSON.stringify({ foo: "bar" }));
       mockExistsSync.mockReturnValue(false);
 
       const result = await loadTokens();
@@ -130,13 +130,13 @@ describe("token-store", () => {
 
   describe("deleteTokens", () => {
     it("deletes from keychain and cleans up fallback file", async () => {
-      mockSecretsStore.set("rh-for-agents:session-tokens", "data");
+      mockSecretsStore.set("robinhood-for-agents:session-tokens", "data");
       mockExistsSync.mockReturnValue(true);
 
       await deleteTokens();
 
       expect(mockSecrets.delete).toHaveBeenCalledWith({
-        service: "rh-for-agents",
+        service: "robinhood-for-agents",
         name: "session-tokens",
       });
       expect(mockUnlinkSync).toHaveBeenCalled();

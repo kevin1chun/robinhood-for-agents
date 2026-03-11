@@ -1,7 +1,7 @@
 ---
 name: robinhood-trade
 description: Place, monitor, and cancel Robinhood orders. Use when user wants to buy, sell, or manage orders.
-allowed-tools: mcp__rh-for-agents__*
+allowed-tools: mcp__robinhood-for-agents__*
 ---
 
 # robinhood-trade
@@ -28,7 +28,7 @@ Place, monitor, and cancel stock/option/crypto orders.
 ### Order Flow
 
 #### Step 1: Resolve Account
-Call `rh-for-agents:robinhood_get_accounts` to list accounts. If the user has multiple accounts, **ask which account to use** before proceeding. Never pick an account on the user's behalf.
+Call `robinhood-for-agents:robinhood_get_accounts` to list accounts. If the user has multiple accounts, **ask which account to use** before proceeding. Never pick an account on the user's behalf.
 
 #### Step 2: Parse the Request
 Extract from the user's message:
@@ -39,7 +39,7 @@ Extract from the user's message:
 - Asset type (stock/option/crypto)
 
 #### Step 3: Show Confirmation
-Get current price via `rh-for-agents:robinhood_get_stock_quote` (or `rh-for-agents:robinhood_get_crypto` for crypto), then present an order preview:
+Get current price via `robinhood-for-agents:robinhood_get_stock_quote` (or `robinhood-for-agents:robinhood_get_crypto` for crypto), then present an order preview:
 ```
 Order Preview:
   Action: BUY 10 shares of AAPL
@@ -55,7 +55,7 @@ Wait for the user to explicitly confirm.
 #### Step 4: Place Order (after user confirms)
 
 ### Stock Orders
-Use `rh-for-agents:robinhood_place_stock_order` with parameters:
+Use `robinhood-for-agents:robinhood_place_stock_order` with parameters:
 - `symbol`, `side` ("buy"/"sell"), `quantity`
 - `order_type`: "market", "limit", "stop", "stop_limit", "trailing_stop"
 - `limit_price`: for limit/stop_limit orders
@@ -66,7 +66,7 @@ Use `rh-for-agents:robinhood_place_stock_order` with parameters:
 - `extended_hours`: boolean
 
 ### Option Orders
-Use `rh-for-agents:robinhood_place_option_order` with parameters:
+Use `robinhood-for-agents:robinhood_place_option_order` with parameters:
 - `symbol`: underlying ticker
 - `legs`: array of `{ expiration_date, strike, option_type, side, position_effect, ratio_quantity }` — single-leg or multi-leg for spreads
 - `price`: limit price per contract (single-leg) or net price (spreads)
@@ -77,18 +77,18 @@ Use `rh-for-agents:robinhood_place_option_order` with parameters:
 - `account_number`: **required** — get from `robinhood_get_accounts`
 
 ### Crypto Orders
-Use `rh-for-agents:robinhood_place_crypto_order` with parameters:
+Use `robinhood-for-agents:robinhood_place_crypto_order` with parameters:
 - `symbol` (e.g., "BTC"), `side` ("buy"/"sell")
 - `amount_or_quantity`: the number
 - `amount_in`: "quantity" (crypto units) or "price" (dollars)
 - `limit_price`: for limit orders
 
 ### Order Management
-- **View orders**: `rh-for-agents:robinhood_get_orders` with `order_type` and `status` ("open"/"all")
-- **Cancel order**: `rh-for-agents:robinhood_cancel_order` with `order_id` and `order_type`
+- **View orders**: `robinhood-for-agents:robinhood_get_orders` with `order_type` and `status` ("open"/"all")
+- **Cancel order**: `robinhood-for-agents:robinhood_cancel_order` with `order_id` and `order_type`
 
 ### Order Monitoring
-After placing an order, use `rh-for-agents:robinhood_get_order_status` with the `order_id` from the placement response to check fill status, timestamps, and current state.
+After placing an order, use `robinhood-for-agents:robinhood_get_order_status` with the `order_id` from the placement response to check fill status, timestamps, and current state.
 
 ## BLOCKED Operations (never use)
 - Bulk cancel operations
@@ -96,17 +96,17 @@ After placing an order, use `rh-for-agents:robinhood_get_order_status` with the 
 - Bank unlinking
 
 ## Programmatic Access
-For TypeScript scripts using `rh-for-agents`, see [client-api.md](client-api.md).
+For TypeScript scripts using `robinhood-for-agents`, see [client-api.md](client-api.md).
 
 ## MCP Tools Used
 | Tool | Purpose |
 |------|---------|
-| `rh-for-agents:robinhood_get_accounts` | Get account numbers (required for orders) |
-| `rh-for-agents:robinhood_get_stock_quote` | Get current price for confirmation |
-| `rh-for-agents:robinhood_get_crypto` | Get crypto price for confirmation |
-| `rh-for-agents:robinhood_place_stock_order` | Place stock orders |
-| `rh-for-agents:robinhood_place_option_order` | Place option orders |
-| `rh-for-agents:robinhood_place_crypto_order` | Place crypto orders |
-| `rh-for-agents:robinhood_get_orders` | View order history |
-| `rh-for-agents:robinhood_cancel_order` | Cancel a specific order |
-| `rh-for-agents:robinhood_get_order_status` | Check order fill status after placement |
+| `robinhood-for-agents:robinhood_get_accounts` | Get account numbers (required for orders) |
+| `robinhood-for-agents:robinhood_get_stock_quote` | Get current price for confirmation |
+| `robinhood-for-agents:robinhood_get_crypto` | Get crypto price for confirmation |
+| `robinhood-for-agents:robinhood_place_stock_order` | Place stock orders |
+| `robinhood-for-agents:robinhood_place_option_order` | Place option orders |
+| `robinhood-for-agents:robinhood_place_crypto_order` | Place crypto orders |
+| `robinhood-for-agents:robinhood_get_orders` | View order history |
+| `robinhood-for-agents:robinhood_cancel_order` | Cancel a specific order |
+| `robinhood-for-agents:robinhood_get_order_status` | Check order fill status after placement |

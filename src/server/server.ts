@@ -1,4 +1,4 @@
-/** MCP server for rh-for-agents. */
+/** MCP server for robinhood-for-agents. */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAuthTools } from "./tools/auth.js";
@@ -11,7 +11,7 @@ import { registerStockTools } from "./tools/stocks.js";
 
 export function createServer(): McpServer {
   const server = new McpServer({
-    name: "rh-for-agents",
+    name: "robinhood-for-agents",
     version: "0.1.0",
   });
 

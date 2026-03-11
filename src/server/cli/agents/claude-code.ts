@@ -6,14 +6,14 @@ import type { AgentMeta } from "./types.js";
 function installMcp(binPath: string): void {
   // Remove existing entry (ignore errors if not found)
   try {
-    execFileSync("claude", ["mcp", "remove", "rh-for-agents"], { stdio: "pipe" });
+    execFileSync("claude", ["mcp", "remove", "robinhood-for-agents"], { stdio: "pipe" });
   } catch {
     // not found — fine
   }
 
   execFileSync(
     "claude",
-    ["mcp", "add", "-s", "user", "rh-for-agents", "--", "bun", "run", binPath],
+    ["mcp", "add", "-s", "user", "robinhood-for-agents", "--", "bun", "run", binPath],
     {
       stdio: "pipe",
     },

@@ -1,7 +1,7 @@
-# rh-for-agents
+# robinhood-for-agents
 
-[![CI](https://github.com/kevin1chun/rh-for-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/kevin1chun/rh-for-agents/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/rh-for-agents)](https://www.npmjs.com/package/rh-for-agents)
+[![CI](https://github.com/kevin1chun/robinhood-for-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/kevin1chun/robinhood-for-agents/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/robinhood-for-agents)](https://www.npmjs.com/package/robinhood-for-agents)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Robinhood for AI agents — an MCP server with 18 structured tools and a standalone TypeScript client, in a single package.
@@ -24,7 +24,7 @@ Compatible with **Claude Code**, **Codex**, **OpenClaw**, and any MCP-compatible
 
 ```bash
 # Requires Bun runtime — see Prerequisites
-npx rh-for-agents onboard
+npx robinhood-for-agents onboard
 ```
 
 The interactive setup detects your agent, registers the MCP server, installs skills (where supported), and walks you through Robinhood login.
@@ -32,18 +32,18 @@ The interactive setup detects your agent, registers the MCP server, installs ski
 You can also specify your agent directly:
 
 ```bash
-rh-for-agents onboard --agent claude-code
-rh-for-agents onboard --agent codex
-rh-for-agents onboard --agent openclaw
+robinhood-for-agents onboard --agent claude-code
+robinhood-for-agents onboard --agent codex
+robinhood-for-agents onboard --agent openclaw
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/kevin1chun/rh-for-agents.git
-cd rh-for-agents
+git clone https://github.com/kevin1chun/robinhood-for-agents.git
+cd robinhood-for-agents
 bun install
-bun bin/rh-for-agents.ts onboard
+bun bin/robinhood-for-agents.ts onboard
 ```
 
 ### Manual setup
@@ -53,11 +53,11 @@ bun bin/rh-for-agents.ts onboard
 
 ```bash
 # Register MCP server (global — available in all projects)
-claude mcp add -s user rh-for-agents -- bun run /path/to/bin/rh-for-agents.ts
+claude mcp add -s user robinhood-for-agents -- bun run /path/to/bin/robinhood-for-agents.ts
 
 # Install skills (per-project, optional)
 cd your-project
-rh-for-agents install --skills
+robinhood-for-agents install --skills
 ```
 
 Restart Claude Code to pick up the changes. Claude Code supports 5 trading skills in addition to the 18 MCP tools — see [Skills](#skills-5).
@@ -67,7 +67,7 @@ Restart Claude Code to pick up the changes. Claude Code supports 5 trading skill
 <summary>Codex</summary>
 
 ```bash
-codex mcp add rh-for-agents -- bun run /path/to/bin/rh-for-agents.ts
+codex mcp add robinhood-for-agents -- bun run /path/to/bin/robinhood-for-agents.ts
 ```
 
 Restart Codex to pick up the changes. Codex uses all 18 MCP tools directly.
@@ -77,7 +77,7 @@ Restart Codex to pick up the changes. Codex uses all 18 MCP tools directly.
 <summary>OpenClaw (skills only)</summary>
 
 ```bash
-rh-for-agents onboard --agent openclaw
+robinhood-for-agents onboard --agent openclaw
 ```
 
 This installs 5 trading skills to `~/.openclaw/workspace/skills/`. Restart the OpenClaw gateway to pick up the changes.
@@ -92,9 +92,9 @@ Add to your MCP client's config (e.g. `~/Library/Application Support/Claude/clau
 ```json
 {
   "mcpServers": {
-    "rh-for-agents": {
+    "robinhood-for-agents": {
       "command": "bun",
-      "args": ["run", "/absolute/path/to/rh-for-agents/bin/rh-for-agents.ts"]
+      "args": ["run", "/absolute/path/to/robinhood-for-agents/bin/robinhood-for-agents.ts"]
     }
   }
 }
@@ -148,7 +148,7 @@ Skills provide guided workflows on top of MCP tools. Supported by **Claude Code*
 | `robinhood-trade` | "buy 10 AAPL", "sell my position" |
 | `robinhood-options` | "show AAPL options", "find calls" |
 
-Each skill includes a `client-api.md` reference for advanced users who want their agent to generate TypeScript scripts using `rh-for-agents`.
+Each skill includes a `client-api.md` reference for advanced users who want their agent to generate TypeScript scripts using `robinhood-for-agents`.
 
 ## Agent Compatibility
 
@@ -162,7 +162,7 @@ Each skill includes a `client-api.md` reference for advanced users who want thei
 ## Client Library (standalone)
 
 ```typescript
-import { RobinhoodClient } from "rh-for-agents";
+import { RobinhoodClient } from "robinhood-for-agents";
 
 const client = new RobinhoodClient();
 await client.restoreSession();
@@ -264,14 +264,14 @@ This design is resilient to Robinhood UI changes — it doesn't depend on any DO
 │  JSON.stringify()                                                  │
 │         │                                                          │
 │         ▼                                                          │
-│  Bun.secrets.set("rh-for-agents", "session-tokens", json)         │
+│  Bun.secrets.set("robinhood-for-agents", "session-tokens", json)         │
 │  → OS encrypts and stores in keychain                              │
 │  → No file written to disk                                         │
 │                                                                    │
 │                                                                    │
 │  LOAD                                                              │
 │  ────                                                              │
-│  Bun.secrets.get("rh-for-agents", "session-tokens")               │
+│  Bun.secrets.get("robinhood-for-agents", "session-tokens")               │
 │         │                                                          │
 │         ▼                                                          │
 │  JSON.parse() → TokenData                                          │
@@ -285,7 +285,7 @@ This design is resilient to Robinhood UI changes — it doesn't depend on any DO
 │  └── Windows: Credential Manager                                   │
 │  Tokens never touch the filesystem.                                │
 │                                                                    │
-│  Fallback: plaintext JSON (~/.rh-for-agents/session.json)          │
+│  Fallback: plaintext JSON (~/.robinhood-for-agents/session.json)          │
 │  (CI environments, minimal installs without keychain)              │
 └────────────────────────────────────────────────────────────────────┘
 ```
