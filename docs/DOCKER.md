@@ -1,6 +1,6 @@
 # Docker (OpenClaw, etc.)
 
-**TL;DR** — Keychain lives on the host. Container can’t see it. One command writes tokens to a file; you mount the file. Done.
+**TL;DR** — Tokens stay on the host. The container connects through an auth proxy. No tokens, keys, or credentials inside the container.
 
 ---
 
@@ -8,42 +8,107 @@
 
 | Where | Keychain? |
 |-------|-----------|
-| **Host (Mac)** | Yes. Login + tokens live here. |
-| **Container** |  No. It’s a different OS; no API to your Mac keychain. |
+| **Host (Mac/Linux)** | Yes. Login + tokens live here. |
+| **Container** | No. Different OS; no API to your host keychain. |
 
- **Tokens stay on the host**. The container gets them by reading a **file** you mount. One write on the host, one mount in Docker.
+OpenClaw and other agents running in Docker execute skill code via `bun` directly — calling `getClient()` → `restoreSession()` → `loadTokens()`. The client library needs to reach the Robinhood API with valid auth.
+
+**The wrong approach**: mounting token files or passing tokens as env vars. A rogue agent can read either in one command. See [SECURITY.md](./SECURITY.md) for detailed attack scenarios.
+
+**The right approach**: an auth proxy on the host that holds the tokens and injects auth headers. The container only knows the proxy URL.
 
 ---
 
-## Flow (3 steps)
+## How the auth proxy works
 
-1. **Host:** `login` → then `docker-setup` (writes a token file + prints the exact Docker config).
-2. **Paste** the printed block into your compose (or use the `docker run` flags).
-3. **Restart** the gateway. Container reads from the mounted file via `ROBINHOOD_TOKENS_FILE`.
+```
+┌─── Host ──────────────────────┐    ┌─── Container ──────────────┐
+│                               │    │                            │
+│ Keychain: has tokens          │    │ Keychain: empty            │
+│ Proxy: listens on :3100      │◄───│ Client: talks to proxy     │
+│                               │    │                            │
+│ Proxy receives request        │    │ No tokens on filesystem    │
+│ → adds Bearer header          │    │ No keys in env vars        │
+│ → forwards to Robinhood API   │    │ Only env: PROXY URL        │
+│ → returns response            │    │                            │
+└───────────────────────────────┘    └────────────────────────────┘
+```
+
+The proxy:
+- Loads tokens from the host keychain via `Bun.secrets`
+- Forwards API requests to `api.robinhood.com` with the Bearer header injected
+- Handles token refresh transparently
+- Never exposes raw tokens in responses
+- Provides rate limiting, operation allowlisting, and audit logging
+
+---
+
+## Setup (3 steps)
+
+### 1. Login on the host
 
 ```bash
 bunx robinhood-for-agents login
-bunx robinhood-for-agents docker-setup
-# update snippet in docker-compose config → docker compose up -d → restart gateway
 ```
 
----
-
-## Optional: keep the file fresh
-
-After you re-login on the host, the file is stale until you write again. Either:
-
-- Re-run `docker-setup`, or  
-- Run a **sync** in the background so the file is rewritten every N seconds from keychain:
+### 2. Start the auth proxy
 
 ```bash
-bunx robinhood-for-agents sync-tokens --out ./robinhood-docker-tokens.json --interval 300
+bunx robinhood-for-agents proxy --port 3100
 ```
 
-Run it in another terminal or `&`. Bind-mount that same path in the container; it stays current.
+The proxy runs on the host and listens for requests from the container.
+
+### 3. Configure your container
+
+Set one env var in your Docker Compose or `docker run`:
+
+```yaml
+# docker-compose.yml
+services:
+  openclaw-gateway:
+    image: your-gateway-image
+    environment:
+      ROBINHOOD_API_PROXY: "http://host.docker.internal:3100"
+```
+
+Or with `docker run`:
+
+```bash
+docker run -e ROBINHOOD_API_PROXY=http://host.docker.internal:3100 your-gateway-image
+```
+
+The client library detects `ROBINHOOD_API_PROXY` and routes all Robinhood API calls through the proxy instead of calling `api.robinhood.com` directly.
 
 ---
 
-## Alternative: MCP on host
+## What the container sees
 
-If your stack can call an MCP server that runs **on the host**, run `robinhood-for-agents` there. Tokens never leave the host; no file, no mount. See your agent’s docs for “MCP server on host”.
+```bash
+# Inside the container:
+$ env | grep ROBINHOOD
+ROBINHOOD_API_PROXY=http://host.docker.internal:3100
+# That's it. No tokens. No keys.
+
+$ find / -name "*.json" -exec grep -l "access_token" {} \;
+# (nothing)
+```
+
+---
+
+## Stopping access
+
+Kill the proxy on the host → the container immediately loses all Robinhood API access. No tokens to revoke, no files to delete.
+
+---
+
+## Why not token files?
+
+Mounting a token file (plaintext or encrypted) into the container means a rogue agent or prompt injection can exfiltrate the credentials in one command:
+
+```bash
+$ cat /secrets/robinhood-tokens.json   # plaintext: instant theft
+$ env | grep ENCRYPTION_KEY            # encrypted: key is right here
+```
+
+The auth proxy avoids this entirely — there's nothing to steal. See [SECURITY.md](./SECURITY.md) for the full threat model.
