@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-03-13
+
+### Added
+
+- **Chrome-based browser support** — browser login now auto-detects Brave, Chrome, and Chromium on macOS; accepts custom `executablePath` via `BROWSER_PATH` env or `robinhood_browser_login` tool parameter (#4)
+- **Claude Code GitHub Workflow** for CI (#6)
+
+### Fixed
+
+- Use `claude_args` instead of invalid `model` input for Opus 4.6 CLI integration
+- Remove unused import and fix import ordering in token-store test
+
+### Changed
+
+- Browser auth refactored with shared `getAccountHint` helper in `_helpers.ts`
+- Updated skill setup docs to reflect multi-browser support
+
+## [0.6.1] - 2026-03-11
+
+### Changed
+
+- **Keychain-only token storage** — removed plaintext session fallback; tokens are stored exclusively in OS keychain via `Bun.secrets`
+
+## [0.6.0] - 2026-03-11
+
+### Changed
+
+- **Unified skill** — merged 5 separate skills (setup, portfolio, research, trade, options) into one dual-mode skill with three-layer progressive disclosure (SKILL.md → reference.md → client-api.md)
+
+## [0.5.2] - 2026-03-11
+
+### Fixed
+
+- Option chain ID parameter handling
+
+## [0.5.0] - 2026-03-10
+
+### Changed
+
+- **Renamed package** from `rh-for-agents` to `robinhood-for-agents`
+- Updated README with auth flow diagrams and security documentation
+
 ## [0.4.0] - 2026-03-10
 
 ### Added
@@ -60,6 +102,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Safety controls: blocked fund transfers, blocked bulk cancels, explicit order parameters
 - Support for Claude Code, Codex, and OpenClaw agents
 
+[0.6.2]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.5.0...v0.5.2
+[0.5.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.2.0...v0.4.0
 [0.2.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kevin1chun/robinhood-for-agents/releases/tag/v0.1.0
