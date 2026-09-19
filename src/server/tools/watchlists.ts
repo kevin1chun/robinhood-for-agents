@@ -13,7 +13,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { RobinhoodClient } from "../../client/client.js";
 import type { WatchlistItemRef, WatchlistObjectType } from "../../client/index.js";
-import { getAuthenticatedRh, structured, textError } from "./_helpers.js";
+import { getAuthenticatedRh, stringEnum, structured, textError } from "./_helpers.js";
 
 const READ_ONLY = { readOnlyHint: true } as const;
 // Adds are non-destructive + idempotent (re-adding is a no-op). Removes are
@@ -185,7 +185,7 @@ export function registerWatchlistTools(server: McpServer): void {
     {
       title: "Get Watchlist Items",
       description:
-        "List the items in a watchlist by list_id. Items are enriched with `symbol` and `name`; `object_type` distinguishes stocks/ETFs (instrument), market indexes (index), and crypto pairs (currency_pair). Does not return live prices — call robinhood_get_stock_quote for those. For the options watchlist use robinhood_get_option_watchlist instead. An unknown list_id returns an error.",
+        "List the items in a watchlist by list_id. Items are enriched with `symbol` and `name`; `object_type` distinguishes stocks/ETFs (instrument), market indexes (index), and crypto pairs (currency_pair). Does not return live prices — call robinhood_get_equity_quotes for those. For the options watchlist use robinhood_get_option_watchlist instead. An unknown list_id returns an error.",
       inputSchema: {
         list_id: z
           .uuid()
@@ -563,15 +563,14 @@ export function registerWatchlistTools(server: McpServer): void {
     {
       title: "Add Option to Watchlist",
       description:
-        'Add option contracts to your options watchlist. Each option_id becomes a single-leg contract. Source option_ids from robinhood_get_options / robinhood_get_option_instruments. Already-present contracts are reported as already_present (no duplicate is created). Only position_type "long" is supported over this path (short-leg watchlist entries must be added via the Robinhood app). CONFIRM WITH THE USER before calling — this is a real write.',
+        'Add option contracts to your options watchlist. Each option_id becomes a single-leg contract. Source option_ids from robinhood_get_option_instruments. Already-present contracts are reported as already_present (no duplicate is created). Only position_type "long" is supported over this path (short-leg watchlist entries must be added via the Robinhood app). CONFIRM WITH THE USER before calling — this is a real write.',
       inputSchema: {
         option_ids: z
           .array(z.uuid())
           .min(1)
           .max(MAX_OPTION_IDS)
           .describe("Option contract UUIDs to add (each becomes a single-leg contract)."),
-        position_type: z
-          .enum(["long", "short"])
+        position_type: stringEnum(["long", "short"])
           .nullish()
           .describe('"long" (default). "short" is not supported over this path — use the app.'),
       },
@@ -658,8 +657,7 @@ export function registerWatchlistTools(server: McpServer): void {
           .min(1)
           .max(MAX_OPTION_IDS)
           .describe("Option contract UUIDs to remove (from robinhood_get_option_watchlist)."),
-        position_type: z
-          .enum(["long", "short"])
+        position_type: stringEnum(["long", "short"])
           .nullish()
           .describe('"long" (default). "short" is not supported over this path — use the app.'),
       },

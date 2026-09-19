@@ -1,19 +1,21 @@
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { AgentMeta } from "./types.js";
+import type { Mode } from "../../mode.js";
+import { type AgentMeta, MCP_ENTRY } from "./types.js";
 
-function installMcp(binPath: string): void {
+function installMcp(binPath: string, mode: Mode): void {
+  const entry = MCP_ENTRY[mode];
   // Remove existing entry (ignore errors if not found)
   try {
-    execFileSync("claude", ["mcp", "remove", "robinhood-for-agents"], { stdio: "pipe" });
+    execFileSync("claude", ["mcp", "remove", entry], { stdio: "pipe" });
   } catch {
     // not found — fine
   }
 
   execFileSync(
     "claude",
-    ["mcp", "add", "-s", "user", "robinhood-for-agents", "--", "bun", "run", binPath],
+    ["mcp", "add", "-s", "user", entry, "--", "bun", "run", binPath, "--mode", mode],
     {
       stdio: "pipe",
     },

@@ -57,7 +57,7 @@ export function registerMarketTools(server: McpServer): void {
     {
       title: "Get Market Hours",
       description:
-        "Get market hours for a date: whether it is a trading day, and when the regular and extended sessions open and close (ISO timestamps). Call this before placing an order when you are unsure which session is live — robinhood_place_stock_order requires an explicit market_hours, and guessing from the local clock gets it wrong across time zones, weekends, and holidays.",
+        "Get market hours for a date: whether it is a trading day, and when the regular and extended sessions open and close (ISO timestamps). Call this before placing an order when you are unsure which session is live — robinhood_place_equity_order defaults to regular_hours, and guessing from the local clock gets it wrong across time zones, weekends, and holidays.",
       inputSchema: {
         date: z
           .string()
@@ -100,17 +100,28 @@ export function registerMarketTools(server: McpServer): void {
     "robinhood_get_indexes",
     {
       title: "Get Market Indexes",
-      description: "Get all tradable market indexes (SPX, NDX, VIX, RUT, XSP, …).",
-      inputSchema: {},
+      description:
+        "Get market index instruments (SPX, NDX, VIX, RUT, XSP, …) with their instrument ids (for robinhood_get_index_quotes) and tradable option chain ids.",
+      inputSchema: {
+        symbols: z
+          .string()
+          .optional()
+          .describe("Comma-separated index symbols (e.g. 'SPX,NDX'). Omit for all."),
+      },
       outputSchema: {
         indexes: z.array(z.unknown()),
       },
       annotations: READ_ONLY,
     },
-    async () => {
+    async ({ symbols }) => {
       try {
         const rh = await getAuthenticatedRh();
-        const indexes = await rh.getIndexInstruments();
+        const wanted = symbols
+          ?.split(",")
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean);
+        const all = await rh.getIndexInstruments();
+        const indexes = wanted?.length ? all.filter((i) => wanted.includes(i.symbol)) : all;
         return structured({ indexes });
       } catch (e) {
         return textError(String(e));
@@ -122,19 +133,20 @@ export function registerMarketTools(server: McpServer): void {
     "robinhood_get_index_quotes",
     {
       title: "Get Index Quotes",
-      description: "Get current values for one or more index symbols.",
+      description:
+        "Get current values for one or more index instrument ids (from robinhood_get_indexes). Unknown ids are skipped.",
       inputSchema: {
-        symbols: z.array(z.string()).min(1).describe('Index symbols, e.g. ["SPX", "VIX"].'),
+        instrument_ids: z.array(z.string()).min(1).describe("Index instrument ids (UUIDs)."),
       },
       outputSchema: {
         quotes: z.array(z.unknown()),
       },
       annotations: READ_ONLY,
     },
-    async ({ symbols }) => {
+    async ({ instrument_ids }) => {
       try {
         const rh = await getAuthenticatedRh();
-        const quotes = await rh.getIndexQuotes(symbols);
+        const quotes = await rh.getIndexValues(instrument_ids);
         return structured({ quotes });
       } catch (e) {
         return textError(String(e));

@@ -2,6 +2,9 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { VERSION } from "../version.js";
+import type { Mode } from "./mode.js";
+import { createOfficialCredentialStore, type OfficialCredentialStore } from "./official/auth.js";
+import { liveUpstream, registerOfficialTools, type Upstream } from "./official/forward.js";
 import { registerAuthTools } from "./tools/auth.js";
 import { registerCryptoTools } from "./tools/crypto.js";
 import { registerMarketTools } from "./tools/markets.js";
@@ -15,11 +18,27 @@ import { registerStockTools } from "./tools/stocks.js";
 import { registerTaxLotTools } from "./tools/tax-lots.js";
 import { registerWatchlistTools } from "./tools/watchlists.js";
 
-export function createServer(): McpServer {
-  const server = new McpServer({
-    name: "robinhood-for-agents",
-    version: VERSION,
-  });
+const INSTRUCTIONS: Record<Mode, string> = {
+  standard:
+    "Standard mode: Robinhood's web API under a Chrome browser session; sign in with robinhood_browser_login.",
+  agent:
+    "Agent mode: every tool is relayed to Robinhood's hosted MCP under the official credential; sign in with robinhood_official_login.",
+};
+
+export function createServer(
+  opts: { mode?: Mode; upstream?: Upstream; officialStore?: OfficialCredentialStore } = {},
+): McpServer {
+  const mode = opts.mode ?? "standard";
+  const server = new McpServer(
+    { name: "robinhood-for-agents", version: VERSION },
+    { instructions: INSTRUCTIONS[mode] },
+  );
+
+  if (mode === "agent") {
+    const store = opts.officialStore ?? createOfficialCredentialStore();
+    registerOfficialTools(server, opts.upstream ?? liveUpstream(store), store);
+    return server;
+  }
 
   registerAuthTools(server);
   registerPortfolioTools(server);
@@ -33,6 +52,5 @@ export function createServer(): McpServer {
   registerPnlTools(server);
   registerReviewTools(server);
   registerTaxLotTools(server);
-
   return server;
 }

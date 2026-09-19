@@ -32,9 +32,9 @@
 ### Automated Rebalancing
 1. Agent calls `robinhood_get_portfolio()` → gets current allocation
 2. Compares to target allocation
-3. Calls `robinhood_get_stock_quote()` for current prices
+3. Calls `robinhood_get_equity_quotes()` for current prices
 4. Determines trades needed
-5. Calls `robinhood_place_stock_order()` for each trade
+5. Calls `robinhood_place_equity_order()` for each trade
 
 ### Multi-Agent Trading System
 1. **Research agent** calls MCP tools to gather market data
@@ -43,7 +43,7 @@
 4. **Monitoring agent** polls open orders via MCP
 
 ### Price Alert System
-1. Agent periodically calls `robinhood_get_stock_quote()` for watchlist
+1. Agent periodically calls `robinhood_get_equity_quotes()` for watchlist
 2. Compares to threshold prices
 3. Triggers notifications or orders when conditions met
 

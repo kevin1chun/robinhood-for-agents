@@ -231,7 +231,7 @@ describe("AuthGateway", () => {
 
   it("allows everything when auth disabled", async () => {
     const gw = makeGateway({ authEnabled: false });
-    expect(await gw.authorize(undefined, "robinhood_place_stock_order")).toBeNull();
+    expect(await gw.authorize(undefined, "robinhood_place_equity_order")).toBeNull();
   });
 
   it("denies missing credential", async () => {
@@ -247,18 +247,18 @@ describe("AuthGateway", () => {
   it("allows read agent to read", async () => {
     const gw = makeGateway();
     expect(await gw.authorize(readCred, "robinhood_get_portfolio")).toBeNull();
-    expect(await gw.authorize(readCred, "robinhood_get_news")).toBeNull();
+    expect(await gw.authorize(readCred, "robinhood_get_equity_news")).toBeNull();
   });
 
   it("denies read agent from trading", async () => {
     const gw = makeGateway();
-    expect(await gw.authorize(readCred, "robinhood_place_stock_order")).toBe("Access denied");
+    expect(await gw.authorize(readCred, "robinhood_place_equity_order")).toBe("Access denied");
   });
 
   it("allows trade agent to trade", async () => {
     const gw = makeGateway();
-    expect(await gw.authorize(tradeCred, "robinhood_place_stock_order")).toBeNull();
-    expect(await gw.authorize(tradeCred, "robinhood_cancel_order")).toBeNull();
+    expect(await gw.authorize(tradeCred, "robinhood_place_equity_order")).toBeNull();
+    expect(await gw.authorize(tradeCred, "robinhood_cancel_equity_order")).toBeNull();
   });
 
   it("denies trade agent from account data", async () => {
@@ -269,7 +269,7 @@ describe("AuthGateway", () => {
   it("admin bypasses all permission checks", async () => {
     const gw = makeGateway();
     expect(await gw.authorize(adminCred, "robinhood_get_portfolio")).toBeNull();
-    expect(await gw.authorize(adminCred, "robinhood_place_stock_order")).toBeNull();
+    expect(await gw.authorize(adminCred, "robinhood_place_equity_order")).toBeNull();
     expect(await gw.authorize(adminCred, "robinhood_get_account")).toBeNull();
     expect(await gw.authorize(adminCred, "unknown-tool")).toBeNull();
   });
@@ -286,16 +286,16 @@ describe("AuthGateway", () => {
 
   it("does not leak tool names or permissions in error messages", async () => {
     const gw = makeGateway();
-    const result = await gw.authorize(readCred, "robinhood_place_stock_order");
+    const result = await gw.authorize(readCred, "robinhood_place_equity_order");
     expect(result).toBe("Access denied");
-    expect(result).not.toContain("robinhood_place_stock_order");
+    expect(result).not.toContain("robinhood_place_equity_order");
     expect(result).not.toContain("trade");
   });
 
   it("records decisions", async () => {
     const gw = makeGateway();
     await gw.authorize(readCred, "robinhood_get_portfolio");
-    await gw.authorize(readCred, "robinhood_place_stock_order");
+    await gw.authorize(readCred, "robinhood_place_equity_order");
     const decisions = gw.getDecisions();
     expect(decisions).toHaveLength(2);
     expect(decisions[0].action).toBe("allow");

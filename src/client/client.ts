@@ -27,6 +27,7 @@ import { createTokenStore, type TokenStore } from "./token-store.js";
 import type {
   Account,
   CryptoOrder,
+  CryptoPair,
   CryptoPosition,
   CryptoQuote,
   Earnings,
@@ -44,6 +45,7 @@ import type {
   OptionChain,
   OptionHistorical,
   OptionInstrument,
+  OptionLegInput,
   OptionMarketData,
   OptionOrder,
   OptionOrderReview,
@@ -577,10 +579,21 @@ export class RobinhoodClient {
     const indexMap = await this.getIndexes();
     const index = indexMap.get(symbol.toUpperCase());
     if (!index) return null;
-    const resp = (await requestGet(this.session, urls.indexValues(), {
-      params: { ids: index.id },
-    })) as { status?: string; data?: Array<{ status?: string; data?: IndexValue }> };
-    return resp.data?.[0]?.data ?? null;
+    return (await this.getIndexValues([index.id]))[0] ?? null;
+  }
+
+  /** Current values for index instrument ids (from getIndexInstruments). Unknown ids are skipped. */
+  async getIndexValues(ids: string[]): Promise<IndexValue[]> {
+    this.requireAuth();
+    const out: IndexValue[] = [];
+    for (const id of ids) {
+      const resp = (await requestGet(this.session, urls.indexValues(), {
+        params: { ids: id },
+      })) as { data?: Array<{ data?: IndexValue }> };
+      const value = resp.data?.[0]?.data;
+      if (value) out.push(value);
+    }
+    return out;
   }
 
   /** All tradable index instruments (SPX, NDX, VIX, RUT, …). */
@@ -646,6 +659,94 @@ export class RobinhoodClient {
       params: { equity_instrument_ids: inst.id, state: "active" },
     })) as OptionChain[];
     return chains[0] ?? emptyChain;
+  }
+
+  /**
+   * Option chains by chain ids, or every chain of an underlying (equity or
+   * index — an index such as SPX can have several, e.g. SPX and SPXW).
+   */
+  async getOptionChains(opts: {
+    ids?: string[];
+    underlyingSymbol?: string;
+  }): Promise<OptionChain[]> {
+    this.requireAuth();
+    let params: Record<string, string>;
+    if (opts.ids?.length) {
+      params = { ids: opts.ids.join(",") };
+    } else if (opts.underlyingSymbol) {
+      const sym = opts.underlyingSymbol.trim().toUpperCase();
+      const index = (await this.getIndexes()).get(sym);
+      if (index?.tradable_chain_ids?.length) {
+        params = { ids: index.tradable_chain_ids.join(",") };
+      } else {
+        const inst = (await this.findInstruments(sym)).find((i) => i.symbol === sym);
+        if (!inst) return [];
+        params = { equity_instrument_ids: inst.id, state: "active" };
+      }
+    } else {
+      throw new Error("Pass ids or underlyingSymbol");
+    }
+    return (await requestGet(this.session, urls.optionChains(), {
+      dataType: "results",
+      params,
+    })) as OptionChain[];
+  }
+
+  /**
+   * Option instruments of one chain, filtered by expirations / strike / type
+   * (sent as query params and re-applied client-side, as findTradableOptions
+   * does) and by `state` (client-side only).
+   */
+  async getOptionInstruments(opts: {
+    chainId: string;
+    expirationDates?: string[];
+    strikePrice?: string;
+    type?: "call" | "put";
+    state?: string;
+  }): Promise<OptionInstrument[]> {
+    this.requireAuth();
+    const params: Record<string, string> = { chain_id: opts.chainId };
+    if (opts.expirationDates?.length) params.expiration_dates = opts.expirationDates.join(",");
+    if (opts.strikePrice != null) params.strike_price = opts.strikePrice;
+    if (opts.type) params.type = opts.type;
+    let results = (await requestGet(this.session, urls.optionInstruments(), {
+      dataType: "pagination",
+      params,
+    })) as OptionInstrument[];
+    if (opts.expirationDates?.length) {
+      const dates = new Set(opts.expirationDates);
+      results = results.filter((o) => dates.has(o.expiration_date));
+    }
+    if (opts.strikePrice != null) {
+      const strike = Number(opts.strikePrice);
+      results = results.filter((o) => Number(o.strike_price) === strike);
+    }
+    if (opts.type) results = results.filter((o) => o.type === opts.type);
+    if (opts.state) results = results.filter((o) => o.state === opts.state);
+    return results;
+  }
+
+  /** Market data (quote + greeks) for option instrument ids, one request per id. */
+  async getOptionQuotes(ids: string[]): Promise<OptionMarketData[]> {
+    this.requireAuth();
+    const out: OptionMarketData[] = [];
+    for (const id of ids) {
+      out.push((await requestGet(this.session, urls.optionMarketData(id))) as OptionMarketData);
+    }
+    return out;
+  }
+
+  /** OHLC series for one option instrument id. */
+  async getOptionHistoricalsById(
+    optionId: string,
+    opts: { span: string; interval: string; bounds?: string },
+  ): Promise<OptionHistorical> {
+    this.requireAuth();
+    const params: Record<string, string> = { span: opts.span, interval: opts.interval };
+    if (opts.bounds) params.bounds = opts.bounds;
+    return (await requestGet(this.session, urls.optionHistoricals(optionId), {
+      params,
+    })) as OptionHistorical;
   }
 
   async findTradableOptions(
@@ -756,19 +857,15 @@ export class RobinhoodClient {
       strikePrice,
       optionType,
     });
-    if (options.length === 0) return [];
-    const params: Record<string, string> = {
-      span: opts?.span ?? "day",
-      interval: opts?.interval ?? "hour",
-    };
-    if (opts?.bounds) params.bounds = opts.bounds;
-
     const results: OptionHistorical[] = [];
     for (const opt of options) {
-      const data = (await requestGet(this.session, urls.optionHistoricals(opt.id), {
-        params,
-      })) as OptionHistorical;
-      results.push(data);
+      results.push(
+        await this.getOptionHistoricalsById(opt.id, {
+          span: opts?.span ?? "day",
+          interval: opts?.interval ?? "hour",
+          bounds: opts?.bounds,
+        }),
+      );
     }
     return results;
   }
@@ -877,6 +974,8 @@ export class RobinhoodClient {
        */
       marketHours?: OrderMarketHours;
       accountNumber?: string;
+      /** Idempotency key; the API deduplicates retries by it. Defaults to a fresh UUID. */
+      refId?: string;
     },
   ): Promise<StockOrder> {
     this.requireAuth();
@@ -1011,7 +1110,7 @@ export class RobinhoodClient {
             return opts.timeInForce;
           })(),
       extended_hours: extendedHours,
-      ref_id: crypto.randomUUID(),
+      ref_id: opts?.refId ?? crypto.randomUUID(),
     };
     if (marketHours != null) payload.market_hours = marketHours;
 
@@ -1077,16 +1176,14 @@ export class RobinhoodClient {
     return (await requestGet(this.session, urls.optionOrder(orderId))) as OptionOrder;
   }
 
+  /**
+   * Place a limit (or stop-limit, with `stopPrice`) option order. A leg names its
+   * contract either by `optionId` or by expiration + strike + type on `symbol`
+   * (`symbol` is unused when every leg carries an `optionId`).
+   */
   async orderOption(
     symbol: string,
-    legs: Array<{
-      expirationDate: string;
-      strike: number;
-      optionType: "call" | "put";
-      side: "buy" | "sell";
-      positionEffect: "open" | "close";
-      ratioQuantity?: number;
-    }>,
+    legs: OptionLegInput[],
     price: number,
     quantity: number,
     direction: "debit" | "credit",
@@ -1094,6 +1191,8 @@ export class RobinhoodClient {
       stopPrice?: number;
       timeInForce?: string;
       accountNumber?: string;
+      /** Idempotency key; the API deduplicates retries by it. Defaults to a fresh UUID. */
+      refId?: string;
     },
   ): Promise<OptionOrder> {
     this.requireAuth();
@@ -1110,22 +1209,10 @@ export class RobinhoodClient {
       throw new Error("stopPrice must be a positive finite number");
     }
 
-    // Resolve each leg's option instrument
     const resolvedLegs = [];
     for (const leg of legs) {
-      const options = await this.findTradableOptions(symbol, {
-        expirationDate: leg.expirationDate,
-        strikePrice: leg.strike,
-        optionType: leg.optionType,
-      });
-      if (options.length === 0) {
-        throw new NotFoundError(
-          `No tradable option found: ${symbol} ${leg.expirationDate} ${leg.strike} ${leg.optionType}`,
-        );
-      }
-      const opt = options[0] as OptionInstrument;
       resolvedLegs.push({
-        option_id: opt.id,
+        option_id: "optionId" in leg ? leg.optionId : (await this.resolveOptionLeg(symbol, leg)).id,
         side: leg.side,
         position_effect: leg.positionEffect,
         ratio_quantity: leg.ratioQuantity ?? 1,
@@ -1146,7 +1233,7 @@ export class RobinhoodClient {
       market_hours: "regular_hours",
       override_day_trade_checks: true,
       override_dtbp_checks: true,
-      ref_id: crypto.randomUUID(),
+      ref_id: opts?.refId ?? crypto.randomUUID(),
     };
 
     if (opts?.stopPrice != null) {
@@ -1157,6 +1244,24 @@ export class RobinhoodClient {
       payload,
       asJson: true,
     })) as OptionOrder;
+  }
+
+  private async resolveOptionLeg(
+    symbol: string,
+    leg: { expirationDate: string; strike: number; optionType: "call" | "put" },
+  ): Promise<OptionInstrument> {
+    const options = await this.findTradableOptions(symbol, {
+      expirationDate: leg.expirationDate,
+      strikePrice: leg.strike,
+      optionType: leg.optionType,
+    });
+    const opt = options[0];
+    if (!opt) {
+      throw new NotFoundError(
+        `No tradable option found: ${symbol} ${leg.expirationDate} ${leg.strike} ${leg.optionType}`,
+      );
+    }
+    return opt;
   }
 
   async cancelOptionOrder(orderId: string): Promise<void> {
@@ -1196,6 +1301,8 @@ export class RobinhoodClient {
       amountIn?: "quantity" | "price";
       orderType?: "market" | "limit";
       limitPrice?: number;
+      /** Idempotency key; the API deduplicates retries by it. Defaults to a fresh UUID. */
+      refId?: string;
     },
   ): Promise<CryptoOrder> {
     this.requireAuth();
@@ -1224,7 +1331,7 @@ export class RobinhoodClient {
       side,
       type: opts?.orderType ?? "market",
       time_in_force: "gtc",
-      ref_id: crypto.randomUUID(),
+      ref_id: opts?.refId ?? crypto.randomUUID(),
     };
 
     if (amountIn === "quantity") {
@@ -1369,12 +1476,12 @@ export class RobinhoodClient {
     );
   }
 
-  /** All crypto currency pairs (id + asset code). Used to validate pair ids. */
-  async getCurrencyPairs(): Promise<Array<{ id: string; asset_currency?: { code?: string } }>> {
+  /** All crypto currency pairs (id, symbol, asset currency, tradability). */
+  async getCurrencyPairs(): Promise<CryptoPair[]> {
     this.requireAuth();
     return (await requestGet(this.session, urls.cryptoCurrencyPairs(), {
       dataType: "results",
-    })) as Array<{ id: string; asset_currency?: { code?: string } }>;
+    })) as CryptoPair[];
   }
 
   // ---------------------------------------------------------------------------
@@ -1909,49 +2016,48 @@ export class RobinhoodClient {
    * account identifiers scrubbed.
    */
   async reviewOptionOrder(opts: {
-    symbol: string;
-    legs: Array<{
-      expirationDate: string;
-      strike: number;
-      optionType: "call" | "put";
-      side: "buy" | "sell";
-      positionEffect: "open" | "close";
-      ratioQuantity?: number;
-    }>;
+    /** Underlying; required only for legs named by expiration + strike + type. */
+    symbol?: string;
+    legs: OptionLegInput[];
     price: number;
     quantity: number;
     direction: "debit" | "credit";
     accountNumber?: string;
   }): Promise<OptionOrderReview> {
     this.requireAuth();
-    const sym = opts.symbol.trim().toUpperCase();
-    if (!sym) throw new Error("symbol must be a non-empty string");
+    const sym = opts.symbol?.trim().toUpperCase() ?? "";
     if (opts.legs.length === 0) throw new Error("at least one leg is required");
     if (!(opts.quantity > 0) || !Number.isFinite(opts.quantity)) {
       throw new Error("quantity must be a positive finite number");
     }
     const accountNumber = await this.resolveAccountNumber(opts.accountNumber);
-    const chain = await this.getChains(sym);
 
-    // Per-leg market data (best-effort; a leg that won't resolve stays null).
+    // Resolve every leg to its instrument (a leg that won't resolve fails the
+    // review, as it would fail the place), then attach best-effort market data.
     const legs: OptionOrderReviewLeg[] = [];
+    let chainId: string | undefined;
+    let chainSymbol: string | undefined;
     for (const leg of opts.legs) {
+      let inst: OptionInstrument;
+      if ("optionId" in leg) {
+        inst = await this.getOptionInstrumentById(leg.optionId);
+      } else {
+        if (!sym) throw new Error("symbol is required for legs named by expiration/strike/type");
+        inst = await this.resolveOptionLeg(sym, leg);
+      }
+      chainId ??= inst.chain_id;
+      chainSymbol ??= inst.chain_symbol;
       let market: OptionMarketData | null = null;
       try {
-        const md = await this.getOptionMarketData(
-          sym,
-          leg.expirationDate,
-          leg.strike,
-          leg.optionType,
-        );
-        market = md[0] ?? null;
+        market = (await this.getOptionQuotes([inst.id]))[0] ?? null;
       } catch {
         market = null;
       }
       legs.push({
-        expiration_date: leg.expirationDate,
-        strike: leg.strike,
-        option_type: leg.optionType,
+        option_id: inst.id,
+        expiration_date: inst.expiration_date,
+        strike: Number(inst.strike_price),
+        option_type: inst.type as "call" | "put",
         side: leg.side,
         position_effect: leg.positionEffect,
         ratio_quantity: leg.ratioQuantity ?? 1,
@@ -1961,9 +2067,9 @@ export class RobinhoodClient {
 
     // Collateral for the chain (scrub account identifiers before surfacing).
     let collateral: Record<string, unknown> | null = null;
-    if (chain.id) {
+    if (chainId) {
       try {
-        const raw = (await requestGet(this.session, urls.optionChainCollateral(chain.id), {
+        const raw = (await requestGet(this.session, urls.optionChainCollateral(chainId), {
           params: { account_number: accountNumber },
         })) as Record<string, unknown>;
         collateral = scrubAccountIdentifiers(raw);
@@ -1973,7 +2079,7 @@ export class RobinhoodClient {
     }
 
     return {
-      symbol: sym,
+      symbol: sym || (chainSymbol ?? ""),
       direction: opts.direction,
       price: opts.price,
       quantity: opts.quantity,

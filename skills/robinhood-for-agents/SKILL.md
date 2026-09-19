@@ -1,8 +1,8 @@
 ---
 name: robinhood-for-agents
-description: Trade stocks, options, and crypto on Robinhood — dual mode (MCP tools or TypeScript client).
+description: Trade stocks, options, and crypto on Robinhood — MCP tools (standard mode on the web API, or agent mode relayed to Robinhood's hosted MCP) or TypeScript client.
 homepage: https://github.com/kevin1chun/robinhood-for-agents
-allowed-tools: Bash(bun:*), Bash(bunx robinhood-for-agents:*), mcp__robinhood-for-agents__*
+allowed-tools: Bash(bun:*), Bash(bunx robinhood-for-agents:*), mcp__robinhood-for-agents__*, mcp__robinhood-agent__*
 install:
   - kind: node
     package: robinhood-for-agents

@@ -277,6 +277,11 @@ vi.mock("../../src/client/index.js", () => {
       },
     ]),
     getOptionInstrumentById: vi.fn().mockResolvedValue({ id: "opt1", chain_symbol: "AAPL" }),
+    getOptionChains: vi.fn().mockResolvedValue([{ id: "chain1", symbol: "AAPL" }]),
+    getOptionInstruments: vi.fn().mockResolvedValue([{ id: "opt1", state: "active" }]),
+    getOptionQuotes: vi.fn().mockResolvedValue([{ implied_volatility: "0.3" }]),
+    getOptionHistoricalsById: vi.fn().mockResolvedValue({ data_points: [] }),
+    getIndexValues: vi.fn().mockResolvedValue([{ symbol: "SPX", value: "5000.00" }]),
     quickAddOption: vi.fn().mockResolvedValue({}),
   };
 
@@ -315,9 +320,9 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 }
 
 describe("real SDK smoke — registerTool + outputSchema end-to-end", () => {
-  it("lists all 50 tools without throwing (forces JSON-schema conversion)", async () => {
+  it("lists all 59 tools without throwing (forces JSON-schema conversion)", async () => {
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(50);
+    expect(tools).toHaveLength(59);
     for (const t of tools) {
       expect(t.outputSchema, `${t.name} missing outputSchema`).toBeDefined();
       expect(t.title, `${t.name} missing title`).toBeTruthy();
@@ -325,50 +330,112 @@ describe("real SDK smoke — registerTool + outputSchema end-to-end", () => {
   });
 
   it("robinhood_get_portfolio validates (nested loose passthrough)", async () => {
-    const r = await call("robinhood_get_portfolio", {});
+    const r = await call("robinhood_get_portfolio", { account_number: "ACCT" });
     expect(r.structuredContent?.summary).toBeDefined();
   });
 
-  it("robinhood_get_stock_quote validates (dynamic record outputSchema)", async () => {
-    const r = await call("robinhood_get_stock_quote", { symbols: "AAPL" });
+  it("robinhood_get_equity_quotes validates (dynamic record outputSchema)", async () => {
+    const r = await call("robinhood_get_equity_quotes", { symbols: ["AAPL"] });
     expect((r.structuredContent as Record<string, unknown>).AAPL).toBeDefined();
   });
 
-  it("robinhood_get_fundamentals validates (dynamic record outputSchema)", async () => {
-    const r = await call("robinhood_get_fundamentals", { symbols: "AAPL" });
+  it("robinhood_get_equity_fundamentals validates (dynamic record outputSchema)", async () => {
+    const r = await call("robinhood_get_equity_fundamentals", { symbols: ["AAPL"] });
     expect((r.structuredContent as Record<string, unknown>).AAPL).toBeDefined();
   });
 
-  it("robinhood_place_stock_order validates (write tool)", async () => {
-    const r = await call("robinhood_place_stock_order", {
+  it("robinhood_place_equity_order validates (write tool)", async () => {
+    const r = await call("robinhood_place_equity_order", {
       symbol: "AAPL",
       side: "buy",
-      quantity: 1,
-      time_in_force: "gfd",
-      market_hours: "regular_hours",
+      type: "market",
+      quantity: "1",
       account_number: "ACCT",
     });
     expect(r.structuredContent?.status).toBe("submitted");
   });
 
-  // market_hours has no default on purpose: an order tagged to the wrong
-  // session silently queues instead of executing, so omitting it must fail
-  // loudly rather than pick a session for the caller.
-  it("robinhood_place_stock_order requires market_hours", async () => {
+  it("an unknown enum value is rejected at call time though the schema lists none", async () => {
     await expect(
-      call("robinhood_place_stock_order", {
+      call("robinhood_place_equity_order", {
         symbol: "AAPL",
         side: "buy",
-        quantity: 1,
-        time_in_force: "gfd",
+        type: "trailing_stop",
+        quantity: "1",
         account_number: "ACCT",
       }),
-    ).rejects.toThrow(/market_hours|invalid_type|Required/i);
+    ).rejects.toThrow(/Invalid option/);
   });
 
-  it("robinhood_cancel_order validates", async () => {
-    const r = await call("robinhood_cancel_order", { order_id: "o1" });
-    expect(r.structuredContent?.status).toBe("cancelled");
+  it("place and cancel tools carry the order-tier annotations", async () => {
+    const { tools } = await client.listTools();
+    const ann = (name: string) => tools.find((t) => t.name === name)?.annotations;
+    for (const name of [
+      "robinhood_place_equity_order",
+      "robinhood_place_option_order",
+      "robinhood_place_crypto_order",
+    ]) {
+      expect(ann(name), name).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      });
+    }
+    for (const name of [
+      "robinhood_cancel_equity_order",
+      "robinhood_cancel_option_order",
+      "robinhood_cancel_crypto_order",
+    ]) {
+      expect(ann(name), name).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+      });
+    }
+    for (const t of tools.filter((t) => /(place|cancel)_/.test(t.name))) {
+      expect(t.description).toMatch(/confirm with the user/i);
+    }
+    expect(ann("robinhood_preview_crypto_order")).toMatchObject({ readOnlyHint: true });
+  });
+
+  it("robinhood_cancel_*_order validate", async () => {
+    for (const [name, account] of [
+      ["robinhood_cancel_equity_order", { account_number: "ACCT" }],
+      ["robinhood_cancel_option_order", { account_number: "ACCT" }],
+      ["robinhood_cancel_crypto_order", { rhs_account_number: "ACCT" }],
+    ] as const) {
+      const r = await call(name, { ...account, order_id: "o1" });
+      expect(r.structuredContent?.status).toBe("cancelled");
+    }
+  });
+
+  it("new read tools validate their outputSchema", async () => {
+    const start = new Date(Date.now() - 3_600_000).toISOString();
+    await call("robinhood_get_equity_orders", { account_number: "ACCT" });
+    await call("robinhood_get_crypto_orders", { rhs_account_number: "ACCT" });
+    await call("robinhood_get_crypto_quotes", { symbols: ["BTC-USD"] });
+    await call("robinhood_get_crypto_positions", { rhs_account_number: "ACCT" });
+    await call("robinhood_get_currency_pairs", {});
+    await call("robinhood_get_option_chains", { underlying_symbol: "AAPL" });
+    await call("robinhood_get_option_instruments", { chain_id: "chain1" });
+    await call("robinhood_get_option_quotes", { instrument_ids: ["opt1"] });
+    await call("robinhood_get_option_historicals", { instrument_ids: ["opt1"], start_time: start });
+    await call("robinhood_get_equity_historicals", { symbols: ["AAPL"], start_time: start });
+    await call("robinhood_get_equity_technical_indicators", {
+      symbol: "AAPL",
+      type: "rsi",
+      interval: "5minute",
+      start_time: start,
+    });
+    await call("robinhood_get_index_quotes", { instrument_ids: ["idx1"] });
+    await call("robinhood_search", { query: "BTC", asset_type: "currency_pair" });
+    await call("robinhood_preview_crypto_order", {
+      rhs_account_number: "ACCT",
+      symbol: "BTC",
+      side: "buy",
+      type: "market",
+      quantity: "0.01",
+    });
   });
 
   it("robinhood_get_watchlists / add_to_watchlist / remove_from_watchlist validate", async () => {
@@ -401,24 +468,15 @@ describe("real SDK smoke — registerTool + outputSchema end-to-end", () => {
     await call("robinhood_review_equity_order", {
       symbol: "AAA",
       side: "buy",
-      quantity: 10,
-      limit_price: 130,
+      type: "limit",
+      quantity: "10",
+      limit_price: "130",
       account_number: "ACCT",
     });
     await call("robinhood_review_option_order", {
-      symbol: "AAA",
-      legs: [
-        {
-          expiration_date: "2026-08-21",
-          strike: 100,
-          option_type: "call",
-          side: "buy",
-          position_effect: "open",
-        },
-      ],
-      price: 1.5,
-      quantity: 1,
-      direction: "debit",
+      legs: [{ option_id: "opt1", side: "buy", position_effect: "open" }],
+      price: "1.5",
+      quantity: "1",
       account_number: "ACCT",
     });
   });
@@ -429,10 +487,10 @@ describe("real SDK smoke — registerTool + outputSchema end-to-end", () => {
 
   it("error path (isError) skips output validation even with outputSchema declared", async () => {
     const r = (await client.callTool({
-      name: "robinhood_get_crypto",
-      arguments: { info_type: "quote" }, // no symbol -> textError path
+      name: "robinhood_get_option_chains",
+      arguments: {}, // neither ids nor underlying_symbol -> textError path
     })) as { isError?: boolean; content: Array<{ text: string }> };
     expect(r.isError).toBe(true);
-    expect(r.content[0]?.text).toContain("symbol is required");
+    expect(r.content[0]?.text).toContain("Pass ids or underlying_symbol");
   });
 });

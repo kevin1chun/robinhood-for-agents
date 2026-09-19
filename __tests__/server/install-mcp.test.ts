@@ -9,7 +9,7 @@ describe("installMcp", () => {
     execFileSyncMock.mockReturnValue(Buffer.from(""));
 
     const { installMcp } = await import("../../src/server/cli/install-mcp.js");
-    installMcp();
+    installMcp("standard");
 
     // First call: remove existing
     expect(execFileSyncMock).toHaveBeenCalledWith(
@@ -36,6 +36,38 @@ describe("installMcp", () => {
       ]),
     );
     expect(addCall[2]).toEqual({ stdio: "pipe" });
+    expect((addCall[1] as string[]).slice(-2)).toEqual(["--mode", "standard"]);
+  });
+
+  it("agent mode registers robinhood-agent with --mode agent", async () => {
+    execFileSyncMock.mockReset();
+    execFileSyncMock.mockReturnValue(Buffer.from(""));
+
+    const { installMcp } = await import("../../src/server/cli/install-mcp.js");
+    installMcp("agent");
+
+    expect(execFileSyncMock.mock.calls[0]).toEqual([
+      "claude",
+      ["mcp", "remove", "robinhood-agent"],
+      { stdio: "pipe" },
+    ]);
+    expect(execFileSyncMock.mock.calls[1]).toEqual([
+      "claude",
+      [
+        "mcp",
+        "add",
+        "-s",
+        "user",
+        "robinhood-agent",
+        "--",
+        "bun",
+        "run",
+        binPath(),
+        "--mode",
+        "agent",
+      ],
+      { stdio: "pipe" },
+    ]);
   });
 
   it("continues when remove throws (entry not found)", async () => {
@@ -48,7 +80,7 @@ describe("installMcp", () => {
       .mockReturnValueOnce(Buffer.from(""));
 
     const { installMcp } = await import("../../src/server/cli/install-mcp.js");
-    installMcp();
+    installMcp("standard");
 
     // Should still call add despite remove failing
     expect(execFileSyncMock).toHaveBeenCalledTimes(2);
@@ -62,7 +94,7 @@ describe("installMcp", () => {
     execFileSyncMock.mockReturnValue(Buffer.from(""));
 
     const { installMcp } = await import("../../src/server/cli/install-mcp.js");
-    installMcp();
+    installMcp("standard");
 
     const addCall = execFileSyncMock.mock.calls[1] as unknown[];
     const args = addCall[1] as string[];

@@ -8,22 +8,27 @@ export type Permission = "read" | "trade" | "account" | "admin";
 export const TOOL_PERMISSIONS: Record<string, Permission[]> = {
   // Read tier — market data and portfolio viewing
   robinhood_get_portfolio: ["read"],
-  robinhood_get_stock_quote: ["read"],
-  robinhood_get_historicals: ["read"],
-  robinhood_get_news: ["read"],
+  robinhood_get_equity_quotes: ["read"],
+  robinhood_get_equity_historicals: ["read"],
+  robinhood_get_equity_news: ["read"],
   robinhood_search: ["read"],
   robinhood_get_movers: ["read"],
-  robinhood_get_crypto: ["read"],
-  robinhood_get_options: ["read"],
-  robinhood_get_orders: ["read"],
-  robinhood_get_order_status: ["read"],
+  robinhood_get_crypto_quotes: ["read"],
+  robinhood_get_option_chains: ["read"],
+  robinhood_get_option_instruments: ["read"],
+  robinhood_get_option_quotes: ["read"],
+  robinhood_get_equity_orders: ["read"],
+  robinhood_get_option_orders: ["read"],
+  robinhood_get_crypto_orders: ["read"],
   robinhood_check_session: ["read"],
 
   // Trade tier — order management
-  robinhood_place_stock_order: ["read", "trade"],
+  robinhood_place_equity_order: ["read", "trade"],
   robinhood_place_option_order: ["read", "trade"],
   robinhood_place_crypto_order: ["read", "trade"],
-  robinhood_cancel_order: ["read", "trade"],
+  robinhood_cancel_equity_order: ["read", "trade"],
+  robinhood_cancel_option_order: ["read", "trade"],
+  robinhood_cancel_crypto_order: ["read", "trade"],
 
   // Account tier — sensitive account data
   robinhood_get_account: ["read", "account"],

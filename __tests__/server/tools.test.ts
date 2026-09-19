@@ -287,7 +287,19 @@ vi.mock("../../src/client/index.js", () => {
         name: "AAPL $150 Call",
       },
     ]),
-    getOptionInstrumentById: vi.fn().mockResolvedValue({ id: "opt1", chain_symbol: "AAPL" }),
+    getOptionInstrumentById: vi
+      .fn()
+      .mockResolvedValue({ id: "opt1", chain_symbol: "AAPL", type: "call", state: "active" }),
+    getOptionChains: vi.fn().mockResolvedValue([{ id: "chain1", symbol: "AAPL" }]),
+    getOptionInstruments: vi.fn().mockResolvedValue([
+      { id: "opt1", type: "call", state: "active", tradability: "tradable" },
+      { id: "opt2", type: "call", state: "expired", tradability: "untradable" },
+    ]),
+    getOptionQuotes: vi.fn().mockResolvedValue([{ implied_volatility: "0.3" }]),
+    getOptionHistoricalsById: vi.fn().mockResolvedValue({
+      data_points: [{ begins_at: "2000-01-01T00:00:00Z" }, { begins_at: new Date().toISOString() }],
+    }),
+    getIndexValues: vi.fn().mockResolvedValue([{ symbol: "SPX", value: "5000.00" }]),
     quickAddOption: vi.fn().mockResolvedValue({}),
   };
 
@@ -349,7 +361,7 @@ describe("MCP Server", () => {
     expect(true).toBe(true);
   });
 
-  it("registers exactly 50 uniquely-named tools", async () => {
+  it("registers exactly 59 uniquely-named tools", async () => {
     const [
       auth,
       portfolio,
@@ -392,8 +404,8 @@ describe("MCP Server", () => {
     taxlots.registerTaxLotTools(server);
 
     const names = Object.keys(tools);
-    expect(names).toHaveLength(50);
-    expect(new Set(names).size).toBe(50); // no duplicate names
+    expect(names).toHaveLength(59);
+    expect(new Set(names).size).toBe(59); // no duplicate names
     expect(names.every((n) => n.startsWith("robinhood_"))).toBe(true);
   });
 });
@@ -428,40 +440,58 @@ describe("Tool handlers return MCP content format", () => {
     const { server, tools } = captureMockServer();
     registerOrderTools(server);
 
-    const ordersData = await callTool(tools, "robinhood_get_orders", {
-      order_type: "stock",
-      status: "all",
+    const ordersData = await callTool(tools, "robinhood_get_equity_orders", {
+      account_number: "ABC123",
     });
     expect(ordersData.orders).toEqual([{ id: "o1" }]);
-    expect(ordersData.order_type).toBe("stock");
+    expect(ordersData.next_cursor).toBeNull();
   });
 
-  it("registerOrderTools respects limit param", async () => {
+  it("get_equity_orders filters by state and order_id", async () => {
     const { registerOrderTools } = await import("../../src/server/tools/orders.js");
     const { server, tools } = captureMockServer();
     registerOrderTools(server);
 
-    const ordersData = await callTool(tools, "robinhood_get_orders", {
-      order_type: "stock",
-      status: "all",
-      limit: 0,
+    const none = await callTool(tools, "robinhood_get_equity_orders", {
+      account_number: "ABC123",
+      state: "cancelled",
     });
-    // limit: 0 means no slicing
-    expect(ordersData.orders).toEqual([{ id: "o1" }]);
-  });
+    expect(none.orders).toEqual([]);
 
-  it("registerOrderTools order status works", async () => {
-    const { registerOrderTools } = await import("../../src/server/tools/orders.js");
-    const { server, tools } = captureMockServer();
-    registerOrderTools(server);
-
-    const orderData = await callTool(tools, "robinhood_get_order_status", {
+    const one = await callTool(tools, "robinhood_get_equity_orders", {
+      account_number: "ABC123",
       order_id: "o1",
-      order_type: "stock",
     });
-    expect(orderData.order).toEqual({ id: "o1", state: "filled" });
+    expect(one.orders).toEqual([{ id: "o1", state: "filled" }]);
   });
 
+  it("cancel tools refuse an order of another account", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const rh = getClient();
+    (rh.getStockOrder as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: "o1",
+      state: "queued",
+      account: "https://api.robinhood.com/accounts/OTHER/",
+    });
+    const cancel = rh.cancelStockOrder as ReturnType<typeof vi.fn>;
+    cancel.mockClear();
+    const { registerOrderTools } = await import("../../src/server/tools/orders.js");
+    const { server, tools } = captureMockServer();
+    registerOrderTools(server);
+
+    const refused = (await (tools.robinhood_cancel_equity_order as ToolHandler)({
+      account_number: "ABC123",
+      order_id: "o1",
+    })) as { isError?: boolean };
+    expect(refused.isError).toBe(true);
+    expect(cancel).not.toHaveBeenCalled();
+
+    const ok = await callTool(tools, "robinhood_cancel_crypto_order", {
+      rhs_account_number: "ABC123",
+      order_id: "c1",
+    });
+    expect(ok).toEqual({ status: "cancelled", order_id: "c1" });
+  });
   it("registerMarketTools handlers work", async () => {
     const { registerMarketTools } = await import("../../src/server/tools/markets.js");
     const { server, tools } = captureMockServer();
@@ -478,14 +508,14 @@ describe("Tool handlers return MCP content format", () => {
     const { server, tools } = captureMockServer();
     registerStockTools(server);
 
-    const quoteData = await callTool(tools, "robinhood_get_stock_quote", {
-      symbols: "AAPL",
+    const quoteData = await callTool(tools, "robinhood_get_equity_quotes", {
+      symbols: ["AAPL"],
     });
     expect(quoteData.AAPL).toBeDefined();
     expect(quoteData.AAPL.quote).toEqual({ symbol: "AAPL", last_trade_price: "150.00" });
 
-    const fundamentalsData = await callTool(tools, "robinhood_get_fundamentals", {
-      symbols: "AAPL",
+    const fundamentalsData = await callTool(tools, "robinhood_get_equity_fundamentals", {
+      symbols: ["AAPL"],
     });
     expect(fundamentalsData.AAPL).toEqual({ pe_ratio: "25.5", float: "14669011375" });
 
@@ -510,73 +540,65 @@ describe("Tool handlers return MCP content format", () => {
     expect(loginData.account_hint).toBe("...4521");
   });
 
-  it("registerOptionsTools returns chain and options", async () => {
+  it("option chain / instrument / quote tools", async () => {
     const { registerOptionsTools } = await import("../../src/server/tools/options.js");
     const { server, tools } = captureMockServer();
     registerOptionsTools(server);
 
-    expect(tools.robinhood_get_options).toBeDefined();
-
-    const data = await callTool(tools, "robinhood_get_options", {
-      symbol: "AAPL",
+    const chains = await callTool(tools, "robinhood_get_option_chains", {
+      underlying_symbol: "AAPL",
     });
-    expect(data.chain_info).toEqual({ id: "chain1", expiration_dates: ["2025-01-17"] });
-    expect(data.options).toHaveLength(1);
-    expect(data.options[0].id).toBe("opt1");
-  });
+    expect(chains.chains[0].id).toBe("chain1");
 
-  it("registerOptionsTools includes market data when all filters provided", async () => {
+    // Defaults to active; tradability filters client-side.
+    const inst = await callTool(tools, "robinhood_get_option_instruments", {
+      chain_symbol: "AAPL",
+    });
+    expect(inst.instruments.map((i: { id: string }) => i.id)).toEqual(["opt1"]);
+    const expired = await callTool(tools, "robinhood_get_option_instruments", {
+      chain_id: "chain1",
+      state: "expired",
+    });
+    expect(expired.instruments.map((i: { id: string }) => i.id)).toEqual(["opt2"]);
+
+    const quotes = await callTool(tools, "robinhood_get_option_quotes", {
+      instrument_ids: ["opt1"],
+    });
+    expect(quotes.quotes).toEqual([{ implied_volatility: "0.3" }]);
+  });
+  it("get_option_instruments needs a chain, symbol, or ids", async () => {
     const { registerOptionsTools } = await import("../../src/server/tools/options.js");
     const { server, tools } = captureMockServer();
     registerOptionsTools(server);
-
-    const data = await callTool(tools, "robinhood_get_options", {
-      symbol: "AAPL",
-      expiration_date: "2025-01-17",
-      strike_price: 150,
-      option_type: "call",
-    });
-    expect(data.market_data).toEqual([{ implied_volatility: "0.3" }]);
+    const r = (await (tools.robinhood_get_option_instruments as ToolHandler)({})) as {
+      isError?: boolean;
+    };
+    expect(r.isError).toBe(true);
   });
-
   it("registerCryptoTools quote handler", async () => {
     const { registerCryptoTools } = await import("../../src/server/tools/crypto.js");
     const { server, tools } = captureMockServer();
     registerCryptoTools(server);
 
-    expect(tools.robinhood_get_crypto).toBeDefined();
-
-    const data = await callTool(tools, "robinhood_get_crypto", {
-      symbol: "BTC",
-      info_type: "quote",
+    const data = await callTool(tools, "robinhood_get_crypto_quotes", {
+      symbols: ["BTC-USD", "NOPE"],
     });
-    expect(data.quote).toEqual({ mark_price: "50000.00" });
+    expect(data.quotes[0].quote).toEqual({ mark_price: "50000.00" });
+    expect(data.quotes[1].error).toContain("Unknown");
   });
-
-  it("registerCryptoTools positions handler", async () => {
+  it("registerCryptoTools positions and currency pairs", async () => {
     const { registerCryptoTools } = await import("../../src/server/tools/crypto.js");
     const { server, tools } = captureMockServer();
     registerCryptoTools(server);
 
-    const data = await callTool(tools, "robinhood_get_crypto", {
-      info_type: "positions",
+    const data = await callTool(tools, "robinhood_get_crypto_positions", {
+      rhs_account_number: "ABC123",
     });
     expect(data.positions).toEqual([{ currency: { code: "BTC" } }]);
-  });
 
-  it("registerCryptoTools requires symbol for quote", async () => {
-    const { registerCryptoTools } = await import("../../src/server/tools/crypto.js");
-    const { server, tools } = captureMockServer();
-    registerCryptoTools(server);
-
-    const handler = tools.robinhood_get_crypto as ToolHandler;
-    const result = (await handler({ info_type: "quote" })) as {
-      content: Array<{ text: string }>;
-      isError: boolean;
-    };
-    expect(result.isError).toBe(true);
-    const parsed = JSON.parse(result.content[0]?.text ?? "{}");
-    expect(parsed.error).toContain("symbol is required");
+    const pairs = await callTool(tools, "robinhood_get_currency_pairs", { limit: 1 });
+    expect(pairs.pairs).toHaveLength(1);
+    expect(pairs.next_cursor).toBeNull();
   });
 });
 
@@ -586,7 +608,7 @@ describe("Phase 1A parity tools", () => {
     const { server, tools } = captureMockServer();
     registerPortfolioTools(server);
 
-    const data = await callTool(tools, "robinhood_get_portfolio", { with_dividends: false });
+    const data = await callTool(tools, "robinhood_get_portfolio", { account_number: "ABC123" });
     expect(data.summary.total_equity).toBe("15000.00");
     expect(data.summary.equity_market_value).toBe("14000.00");
     expect(data.summary.currency).toBe("USD");
@@ -599,8 +621,11 @@ describe("Phase 1A parity tools", () => {
     const { server, tools } = captureMockServer();
     registerPortfolioTools(server);
 
-    const data = await callTool(tools, "robinhood_get_equity_positions", { nonzero: true });
+    const data = await callTool(tools, "robinhood_get_equity_positions", {
+      account_number: "ABC123",
+    });
     expect(data.positions).toHaveLength(1);
+    expect(data.next_cursor).toBeNull();
   });
 
   it("an account_number selected from get_accounts flows unredacted into get_portfolio (regression guard for #14)", async () => {
@@ -638,55 +663,127 @@ describe("Phase 1A parity tools", () => {
     const { server, tools } = captureMockServer();
     registerOptionsTools(server);
 
-    const legs = await callTool(tools, "robinhood_get_option_positions", { aggregate: false });
+    const legs = await callTool(tools, "robinhood_get_option_positions", {
+      account_number: "ABC123",
+    });
     expect(legs.positions).toHaveLength(1);
-    expect(legs.aggregate).toBe(false);
+    const shorts = await callTool(tools, "robinhood_get_option_positions", {
+      account_number: "ABC123",
+      type: "short",
+    });
+    expect(shorts.positions).toHaveLength(0);
 
-    const agg = await callTool(tools, "robinhood_get_option_positions", { aggregate: true });
-    expect(agg.aggregate).toBe(true);
-
-    const orders = await callTool(tools, "robinhood_get_option_orders", { open_only: false });
+    const orders = await callTool(tools, "robinhood_get_option_orders", {
+      account_number: "ABC123",
+    });
     expect(orders.orders).toEqual([]);
 
+    // The bar from 2000 falls outside [start_time, now] and is trimmed.
     const hist = await callTool(tools, "robinhood_get_option_historicals", {
-      symbol: "AAPL",
-      expiration_date: "2026-07-18",
-      strike_price: 200,
-      option_type: "call",
-      span: "day",
-      interval: "hour",
+      instrument_ids: ["opt1"],
+      start_time: new Date(Date.now() - 3_600_000).toISOString(),
     });
-    expect(hist.historicals).toHaveLength(1);
+    expect(hist.span).toBe("day");
+    expect(hist.interval).toBe("5minute");
+    expect(hist.historicals[0].data_points).toHaveLength(1);
   });
-
   it("stock parity tools return price book / earnings / tradability", async () => {
     const { registerStockTools } = await import("../../src/server/tools/stocks.js");
     const { server, tools } = captureMockServer();
     registerStockTools(server);
 
-    const pb = await callTool(tools, "robinhood_get_equity_price_book", { symbol: "AAPL" });
-    expect(pb.price_book.instrument_id).toBe("1");
+    const pb = await callTool(tools, "robinhood_get_equity_price_book", { symbols: ["AAPL"] });
+    expect(pb.price_books[0].price_book.instrument_id).toBe("1");
 
     const er = await callTool(tools, "robinhood_get_earnings_results", { symbol: "AAPL" });
     expect(er.earnings).toHaveLength(1);
 
-    const ec = await callTool(tools, "robinhood_get_earnings_calendar", { range_days: 7 });
-    expect(ec.count).toBe(2);
-    expect(ec.range_days).toBe(7);
-
-    const tr = await callTool(tools, "robinhood_get_equity_tradability", { symbols: ["AAPL"] });
+    const tr = await callTool(tools, "robinhood_get_equity_tradability", {
+      account_number: "ABC123",
+      symbols: ["AAPL"],
+    });
     expect(tr.tradability[0].tradeable).toBe(true);
   });
 
+  it("earnings calendar keeps reports inside the window", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const rh = getClient();
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    (rh.getEarningsCalendar as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { symbol: "AAPL", report: { date: today } },
+      { symbol: "OLD", report: { date: "2000-01-01" } },
+    ]);
+    const { registerStockTools } = await import("../../src/server/tools/stocks.js");
+    const { server, tools } = captureMockServer();
+    registerStockTools(server);
+
+    const ec = await callTool(tools, "robinhood_get_earnings_calendar", {});
+    expect(ec.start_date).toBe(today);
+    expect(ec.calendar.map((e: { symbol: string }) => e.symbol)).toEqual(["AAPL"]);
+
+    const bad = (await (tools.robinhood_get_earnings_calendar as ToolHandler)({ days: 40 })) as {
+      isError?: boolean;
+    };
+    expect(bad.isError).toBe(true);
+  });
+
+  it("historicals and indicators trim to the requested range", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const rh = getClient();
+    const now = Date.now();
+    const bars = [3, 2, 1, 0].map((d) => ({
+      begins_at: new Date(now - d * 86_400_000).toISOString(),
+      open_price: "10",
+      high_price: "11",
+      low_price: "9",
+      close_price: String(10 + d),
+      volume: 100,
+    }));
+    const hist = rh.getStockHistoricals as ReturnType<typeof vi.fn>;
+    hist.mockResolvedValue([{ symbol: "AAPL", historicals: bars }]);
+    const { registerStockTools } = await import("../../src/server/tools/stocks.js");
+    const { server, tools } = captureMockServer();
+    registerStockTools(server);
+
+    const start = new Date(now - 1.5 * 86_400_000).toISOString();
+    const h = await callTool(tools, "robinhood_get_equity_historicals", {
+      symbols: ["AAPL"],
+      start_time: start,
+      interval: "day",
+    });
+    expect(h.span).toBe("month");
+    expect(h.historicals[0].historicals).toHaveLength(2);
+
+    // SMA(2) uses the pre-range bar as warm-up; output=latest keeps one point.
+    const ind = await callTool(tools, "robinhood_get_equity_technical_indicators", {
+      symbol: "AAPL",
+      type: "sma",
+      period: 2,
+      interval: "day",
+      start_time: start,
+      output: "latest",
+    });
+    expect(ind.series).toEqual([{ begins_at: bars[3]?.begins_at, value: 10.5 }]);
+
+    const rejected = (await (tools.robinhood_get_equity_technical_indicators as ToolHandler)({
+      symbol: "AAPL",
+      type: "sma",
+      num_std: 2,
+      interval: "day",
+      start_time: start,
+    })) as { isError?: boolean };
+    expect(rejected.isError).toBe(true);
+    hist.mockReset();
+  });
   it("index tools return indexes / quotes", async () => {
     const { registerMarketTools } = await import("../../src/server/tools/markets.js");
     const { server, tools } = captureMockServer();
     registerMarketTools(server);
 
-    const idx = await callTool(tools, "robinhood_get_indexes");
+    const idx = await callTool(tools, "robinhood_get_indexes", { symbols: "SPX,NDX" });
     expect(idx.indexes[0].symbol).toBe("SPX");
 
-    const q = await callTool(tools, "robinhood_get_index_quotes", { symbols: ["SPX"] });
+    const q = await callTool(tools, "robinhood_get_index_quotes", { instrument_ids: ["idx1"] });
     expect(q.quotes[0].value).toBe("5000.00");
   });
 });
@@ -1040,8 +1137,9 @@ describe("Phase 3 order-review tools", () => {
     const data = await callTool(tools, "robinhood_review_equity_order", {
       symbol: "AAA",
       side: "buy",
-      quantity: 10,
-      limit_price: 130,
+      type: "limit",
+      quantity: "10",
+      limit_price: "130",
       account_number: "ACCT",
     });
     // Official DTO surface.
@@ -1072,19 +1170,9 @@ describe("Phase 3 order-review tools", () => {
   it("review_option_order echoes the caller account, includes collateral + legs, and keeps a thin check set", async () => {
     const tools = await reviewTools();
     const data = await callTool(tools, "robinhood_review_option_order", {
-      symbol: "AAA",
-      legs: [
-        {
-          expiration_date: "2026-08-21",
-          strike: 100,
-          option_type: "call",
-          side: "buy",
-          position_effect: "open",
-        },
-      ],
-      price: 1.5,
-      quantity: 1,
-      direction: "debit",
+      legs: [{ option_id: "opt1", side: "buy", position_effect: "open" }],
+      price: "1.5",
+      quantity: "1",
       account_number: "ACCT",
     });
     expect(data.account_number).toBe("ACCT");
@@ -1105,9 +1193,10 @@ describe("Phase 3 order-review tools", () => {
     await callTool(tools, "robinhood_review_equity_order", {
       symbol: "aaa",
       side: "sell",
-      quantity: 3,
-      limit_price: 12.5,
-      stop_price: 11,
+      type: "stop_limit",
+      quantity: "3",
+      limit_price: "12.5",
+      stop_price: "11",
       account_number: "ACCT",
     });
     expect(spy).toHaveBeenCalledWith({
@@ -1118,6 +1207,55 @@ describe("Phase 3 order-review tools", () => {
       stopPrice: 11,
       accountNumber: "ACCT",
     });
+  });
+
+  it("review_option_order derives direction for one leg and needs it for several", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const spy = getClient().reviewOptionOrder as ReturnType<typeof vi.fn>;
+    spy.mockClear();
+    const tools = await reviewTools();
+    await callTool(tools, "robinhood_review_option_order", {
+      legs: [{ option_id: "opt1", side: "sell", position_effect: "open" }],
+      price: "1.5",
+      quantity: "1",
+      account_number: "ACCT",
+    });
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ direction: "credit" }));
+
+    const r = (await (tools.robinhood_review_option_order as ToolHandler)({
+      legs: [
+        { option_id: "opt1", side: "buy", position_effect: "open" },
+        { option_id: "opt2", side: "sell", position_effect: "open" },
+      ],
+      price: "1.5",
+      quantity: "1",
+      account_number: "ACCT",
+    })) as { isError?: boolean; content: Array<{ text: string }> };
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toContain("direction is required");
+  });
+
+  it("preview_crypto_order estimates quantity from a dollar amount and places nothing", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const rh = getClient();
+    (rh.getCryptoQuote as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ask_price: "50000",
+      bid_price: "49900",
+    });
+    const order = rh.orderCrypto as ReturnType<typeof vi.fn>;
+    order.mockClear();
+    const tools = await reviewTools();
+    const data = await callTool(tools, "robinhood_preview_crypto_order", {
+      rhs_account_number: "ABC123",
+      symbol: "BTC-USD",
+      side: "buy",
+      type: "market",
+      dollar_amount: "100",
+    });
+    expect(data.currency_pair_id).toBe("cp-btc");
+    expect(data.estimated_quantity).toBeCloseTo(0.002, 9);
+    expect(data.estimated_notional).toBe(100);
+    expect(order).not.toHaveBeenCalled();
   });
 });
 
@@ -1250,8 +1388,8 @@ describe("Tool error handling", () => {
     const { server, tools } = captureMockServer();
     registerStockTools(server);
 
-    const handler = tools.robinhood_get_stock_quote as ToolHandler;
-    const result = (await handler({ symbols: "AAPL" })) as {
+    const handler = tools.robinhood_get_equity_quotes as ToolHandler;
+    const result = (await handler({ symbols: ["AAPL"] })) as {
       content: Array<{ text: string }>;
       isError: boolean;
     };
@@ -1271,14 +1409,14 @@ describe("Tool error handling", () => {
     const { server, tools } = captureMockServer();
     registerOrderTools(server);
 
-    const handler = tools.robinhood_place_stock_order as ToolHandler;
+    const handler = tools.robinhood_place_equity_order as ToolHandler;
     const result = (await handler({
       symbol: "AAPL",
       side: "buy",
-      quantity: 100,
+      type: "market",
+      quantity: "100",
       time_in_force: "gtc",
       market_hours: "regular_hours",
-      trail_type: "percentage",
     })) as {
       content: Array<{ text: string }>;
       isError: boolean;
@@ -1288,10 +1426,7 @@ describe("Tool error handling", () => {
     expect(parsed.error).toContain("Insufficient funds");
   });
 
-  // The tool requires market_hours precisely so a session is never defaulted.
-  // Without this assertion, dropping the forwarding in the handler would leave
-  // every MCP-placed order untagged and the whole suite would still pass.
-  it("forwards market_hours to the client on every stock order", async () => {
+  it("forwards market_hours to the client and defaults it to regular_hours", async () => {
     const { getClient } = await import("../../src/client/index.js");
     const rh = getClient();
     const spy = rh.orderStock as ReturnType<typeof vi.fn>;
@@ -1301,26 +1436,121 @@ describe("Tool error handling", () => {
     const { server, tools } = captureMockServer();
     registerOrderTools(server);
 
-    const handler = tools.robinhood_place_stock_order as ToolHandler;
+    const handler = tools.robinhood_place_equity_order as ToolHandler;
     await handler({
       symbol: "AAPL",
       side: "buy",
-      quantity: 1,
-      limit_price: 150,
-      time_in_force: "gfd",
+      type: "limit",
+      quantity: "1",
+      limit_price: "150",
       market_hours: "all_day_hours",
-      trail_type: "percentage",
       account_number: "ACCT",
+      ref_id: "ref-1",
     });
-
     expect(spy).toHaveBeenCalledWith(
       "AAPL",
       "buy",
       1,
-      expect.objectContaining({ marketHours: "all_day_hours" }),
+      expect.objectContaining({ marketHours: "all_day_hours", timeInForce: "gfd", refId: "ref-1" }),
+    );
+
+    await handler({ symbol: "AAPL", side: "buy", type: "market", quantity: "1" });
+    expect(spy).toHaveBeenLastCalledWith(
+      "AAPL",
+      "buy",
+      1,
+      expect.objectContaining({ marketHours: "regular_hours" }),
     );
   });
 
+  it("place_equity_order rejects a type/price mismatch and dollar_amount before any call", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const spy = getClient().orderStock as ReturnType<typeof vi.fn>;
+    spy.mockClear();
+    const { registerOrderTools } = await import("../../src/server/tools/orders.js");
+    const { server, tools } = captureMockServer();
+    registerOrderTools(server);
+    const handler = tools.robinhood_place_equity_order as ToolHandler;
+
+    for (const args of [
+      { type: "limit", quantity: "1" },
+      { type: "market", quantity: "1", limit_price: "1" },
+      { type: "market", dollar_amount: "100" },
+    ]) {
+      const r = (await handler({ symbol: "AAPL", side: "buy", ...args })) as { isError?: boolean };
+      expect(r.isError).toBe(true);
+    }
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("place_option_order sends option_id legs and rejects market types", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const spy = getClient().orderOption as ReturnType<typeof vi.fn>;
+    spy.mockClear();
+    const { registerOrderTools } = await import("../../src/server/tools/orders.js");
+    const { server, tools } = captureMockServer();
+    registerOrderTools(server);
+    const handler = tools.robinhood_place_option_order as ToolHandler;
+
+    await handler({
+      account_number: "ACCT",
+      legs: [{ option_id: "opt1", side: "buy", position_effect: "open" }],
+      quantity: "2",
+      price: "1.25",
+    });
+    expect(spy).toHaveBeenCalledWith(
+      "",
+      [{ optionId: "opt1", side: "buy", positionEffect: "open", ratioQuantity: 1 }],
+      1.25,
+      2,
+      "debit",
+      expect.objectContaining({ timeInForce: "gfd", accountNumber: "ACCT" }),
+    );
+
+    const r = (await handler({
+      account_number: "ACCT",
+      legs: [{ option_id: "opt1", side: "buy", position_effect: "open" }],
+      quantity: "1",
+      type: "market",
+    })) as { isError?: boolean };
+    expect(r.isError).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("place_crypto_order maps dollar_amount and rejects stop types", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const spy = getClient().orderCrypto as ReturnType<typeof vi.fn>;
+    spy.mockClear();
+    const { registerOrderTools } = await import("../../src/server/tools/orders.js");
+    const { server, tools } = captureMockServer();
+    registerOrderTools(server);
+    const handler = tools.robinhood_place_crypto_order as ToolHandler;
+
+    await handler({
+      rhs_account_number: "ABC123",
+      symbol: "BTC",
+      side: "buy",
+      type: "market",
+      dollar_amount: "100",
+    });
+    expect(spy).toHaveBeenCalledWith(
+      "BTC",
+      "buy",
+      100,
+      expect.objectContaining({ amountIn: "price", orderType: "market" }),
+    );
+
+    const r = (await handler({
+      rhs_account_number: "ABC123",
+      symbol: "BTC",
+      side: "sell",
+      type: "stop_loss",
+      quantity: "1",
+      stop_price: "1",
+    })) as { isError?: boolean };
+    expect(r.isError).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
   it("forwards sell_short through the place tool", async () => {
     const { getClient } = await import("../../src/client/index.js");
     const rh = getClient();
@@ -1331,15 +1561,15 @@ describe("Tool error handling", () => {
     const { server, tools } = captureMockServer();
     registerOrderTools(server);
 
-    const handler = tools.robinhood_place_stock_order as ToolHandler;
+    const handler = tools.robinhood_place_equity_order as ToolHandler;
     await handler({
       symbol: "AAPL",
       side: "sell_short",
-      quantity: 10,
-      limit_price: 150,
+      type: "limit",
+      quantity: "10",
+      limit_price: "150",
       time_in_force: "gfd",
       market_hours: "regular_hours",
-      trail_type: "percentage",
       account_number: "ACCT",
     });
 

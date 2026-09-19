@@ -5,9 +5,9 @@
 [![ClawHub](https://img.shields.io/badge/ClawHub-robinhood--for--agents-blue)](https://clawhub.ai/kevin1chun/robinhood-for-agents)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Robinhood for AI agents — MCP server with 50 tools + TypeScript client library.
+Robinhood for AI agents — MCP server with two modes + TypeScript client library.
 
-- **50 MCP tools** for any MCP-compatible AI agent
+- **MCP server in two modes** for any MCP-compatible AI agent: standard (59 tools on the web API) or agent (81 tools relayed to Robinhood's hosted MCP)
 - **Unified trading skill** for guided workflows (Claude Code, OpenClaw, [ClawHub](https://clawhub.ai/kevin1chun/robinhood-for-agents))
 - **TypeScript client library** (70+ async methods) for programmatic use
 - **Pluggable token storage** — OS keychain (default) or encrypted file (Docker/headless)
@@ -63,9 +63,9 @@ cd your-project
 npx robinhood-for-agents install --skills
 ```
 
-From a source checkout, register the server as `claude mcp add -s user robinhood-for-agents -- bun run /path/to/checkout/bin/robinhood-for-agents.ts` instead.
+From a source checkout, register the server as `claude mcp add -s user robinhood-for-agents -- bun run /path/to/checkout/bin/robinhood-for-agents.ts` instead. For [agent mode](#modes), add a second entry: `claude mcp add -s user robinhood-agent -e ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents --mode agent` (or `npx robinhood-for-agents install --mode agent`).
 
-Restart Claude Code to pick up the changes. Claude Code supports the unified trading skill in addition to the 50 MCP tools — see [Skill](#skill).
+Restart Claude Code to pick up the changes. Claude Code supports the unified trading skill in addition to the MCP tools — see [Skill](#skill).
 </details>
 
 <details>
@@ -75,9 +75,9 @@ Restart Claude Code to pick up the changes. Claude Code supports the unified tra
 codex mcp add robinhood-for-agents -- bunx robinhood-for-agents
 ```
 
-From a source checkout, use `-- bun run /path/to/checkout/bin/robinhood-for-agents.ts` instead.
+From a source checkout, use `-- bun run /path/to/checkout/bin/robinhood-for-agents.ts` instead. For [agent mode](#modes): `codex mcp add robinhood-agent --env ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents --mode agent`.
 
-Restart Codex to pick up the changes. Codex uses all 50 MCP tools directly.
+Restart Codex to pick up the changes. Codex uses the MCP tools directly.
 </details>
 
 <details>
@@ -126,66 +126,88 @@ From a source checkout, use `"command": "bun", "args": ["run", "/absolute/path/t
 
 Start your agent and say "setup robinhood" (or call `robinhood_browser_login` directly). Your browser will open to the real Robinhood login page — log in with your credentials and MFA. The session is cached in your OS keychain and renews itself: the client refreshes the token a day before it expires, and again on any 401. Regular use keeps you logged in indefinitely — a browser re-login is only needed if the client sits unused long enough for the refresh chain to lapse. Ask your agent to run `robinhood_check_session` if you're unsure.
 
-## MCP Tools (50)
+In agent mode, ask your agent to run `robinhood_official_login` instead: it opens your default browser to Robinhood's sign-in for its hosted MCP, and you approve there once.
 
-All 50 tools work with every MCP-compatible agent.
+## Modes
 
-| Tool | Description |
-|------|-------------|
-| `robinhood_browser_login` | Authenticate via Chrome browser |
-| `robinhood_check_session` | Probe the cached session: `logged_in` / `expired` / `unknown` / `not_authenticated` |
-| `robinhood_get_portfolio` | Portfolio: positions, P&L, equity, cash, buying power |
-| `robinhood_get_equity_positions` | Raw equity positions (shares, avg price) |
-| `robinhood_get_equity_tax_lots` | Open tax lots for one equity holding (cost basis, term, open date) |
-| `robinhood_get_accounts` | List all brokerage accounts |
-| `robinhood_get_account` | Account details and profile |
-| `robinhood_get_stock_quote` | Stock quotes and fundamentals |
-| `robinhood_get_fundamentals` | Fundamentals: float, shares outstanding, valuation, profile |
-| `robinhood_get_short_interest` | Daily short-interest estimate (% of float, with bounds) |
-| `robinhood_get_historicals` | OHLCV price history |
-| `robinhood_get_equity_price_book` | Level-2 price book (bid/ask depth) |
-| `robinhood_get_equity_tradability` | Tradability flags (fractional, short-selling, per-account) |
-| `robinhood_get_earnings_results` | Earnings for a symbol (EPS estimate vs. actual) |
-| `robinhood_get_earnings_calendar` | Market-wide earnings calendar for a day window |
-| `robinhood_get_news` | News, analyst ratings, earnings |
-| `robinhood_get_movers` | Market movers and popular stocks |
-| `robinhood_get_market_hours` | Market hours for a date: is it a trading day, when each session opens/closes |
-| `robinhood_get_indexes` | Tradable market indexes (SPX, NDX, VIX, …) |
-| `robinhood_get_index_quotes` | Current values for index symbols |
-| `robinhood_get_options` | Options chain with greeks |
-| `robinhood_get_option_positions` | Open option positions (per-leg or by strategy) |
-| `robinhood_get_option_orders` | Option order history |
-| `robinhood_get_option_historicals` | Historical OHLC for a specific option contract |
-| `robinhood_get_crypto` | Crypto positions and quotes |
-| `robinhood_review_equity_order` | Simulate a stock order before placing (price-collar check, live quote) |
-| `robinhood_review_option_order` | Simulate an option order before placing (per-leg data, collateral) |
-| `robinhood_place_stock_order` | Place stock orders (market/limit/stop/trailing, incl. `sell_short`) |
-| `robinhood_place_option_order` | Place option orders |
-| `robinhood_place_crypto_order` | Place crypto orders |
-| `robinhood_get_orders` | View order history |
-| `robinhood_cancel_order` | Cancel an order by ID |
-| `robinhood_get_order_status` | Get status of a specific order by ID |
-| `robinhood_search` | Search stocks or browse categories |
-| `robinhood_get_watchlists` | List your own watchlists (with list ids) |
-| `robinhood_get_watchlist_items` | Items of a watchlist (enriched with symbols) |
-| `robinhood_get_popular_watchlists` | Robinhood-curated lists to follow |
-| `robinhood_get_option_watchlist` | Your options watchlist — single-leg option contracts |
-| `robinhood_create_watchlist` | Create a new watchlist (confirm first) |
-| `robinhood_update_watchlist` | Rename / re-describe a watchlist (confirm first) |
-| `robinhood_add_to_watchlist` | Add symbols / indexes / crypto to a list (confirm first) |
-| `robinhood_remove_from_watchlist` | Remove items from a list (confirm first) |
-| `robinhood_follow_watchlist` | Follow a Robinhood-curated list (confirm first) |
-| `robinhood_unfollow_watchlist` | Unfollow a curated list (confirm first) |
-| `robinhood_add_option_to_watchlist` | Add long single-leg option contracts to the options watchlist (confirm first) |
-| `robinhood_remove_option_from_watchlist` | Remove single-leg option contracts from the options watchlist (confirm first) |
-| `robinhood_get_scans` | List your saved scanners (screeners) |
-| `robinhood_get_scanner_filter_specs` | Filter vocabulary for building scans (RSI/MACD/fundamentals/…) |
-| `robinhood_get_realized_pnl` | Realized P&L over a window, bucketed (computed FIFO; equity + crypto) |
-| `robinhood_get_pnl_trade_history` | Per-trade realized P&L (computed FIFO; equity + crypto) |
+The server runs in one mode per process, chosen at launch: `--mode agent|standard`, else `ROBINHOOD_MODE`, else `standard`.
+
+- **Standard** (59 tools): Robinhood's web API (`api.robinhood.com`) under the Chrome session from `robinhood_browser_login`. Serves every account.
+- **Agent** (81 tools): the 80 official Robinhood Trading MCP tools, each relayed unchanged to Robinhood's hosted MCP (`agent.robinhood.com`), plus `robinhood_official_login`, a one-time browser sign-in for Robinhood's official credential. Until it has run, every tool answers an error naming it. Orders reach your Agentic account only; other accounts are read-only there. The credential is kept only in an AES-256-GCM file, never the OS keychain: `official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`, encrypted under `ROBINHOOD_TOKEN_KEY` (32 random bytes, base64: `openssl rand -base64 32`), which must be set in the agent-mode server's environment.
+
+To run both, register two entries, `robinhood-for-agents` (standard) and `robinhood-agent` (`--mode agent`; `install --mode agent` does this for Claude Code). Tool names are the same in both; your agent tells them apart by entry.
+
+Tool names and input schemas are the official ones, prefixed `robinhood_` ([`docs/official-mcp-tools.md`](docs/official-mcp-tools.md#parity)). The official hosted server's measured rate limit is in [`docs/official-mcp-tools.md`](docs/official-mcp-tools.md#measured-rate-limit).
+
+Mode `both`: the web API in standard mode, relayed in agent mode.
+
+| Tool | Mode | Description |
+|------|------|-------------|
+| `robinhood_browser_login` | standard | Authenticate via Chrome browser |
+| `robinhood_check_session` | standard | Probe the cached session: `logged_in` / `expired` / `unknown` / `not_authenticated` |
+| `robinhood_get_accounts` | both | List all brokerage accounts |
+| `robinhood_get_account` | standard | Account details and profile |
+| `robinhood_get_portfolio` | both | Portfolio: positions, P&L, equity, cash, buying power |
+| `robinhood_get_equity_positions` | both | Raw equity positions (shares, avg price) |
+| `robinhood_get_equity_tax_lots` | both | Open tax lots for one equity holding (cost basis, term, open date) |
+| `robinhood_get_equity_quotes` | both | Stock quotes and fundamentals |
+| `robinhood_get_equity_fundamentals` | both | Fundamentals: float, shares outstanding, valuation, profile |
+| `robinhood_get_equity_historicals` | both | OHLCV bars over a time range |
+| `robinhood_get_equity_technical_indicators` | both | RSI, MACD, Bollinger, moving averages, ATR, VWAP, … (computed) |
+| `robinhood_get_short_interest` | standard | Daily short-interest estimate (% of float, with bounds) |
+| `robinhood_get_equity_price_book` | both | Level-2 price book (bid/ask depth) |
+| `robinhood_get_equity_tradability` | both | Tradability flags (fractional, short-selling, per-account type) |
+| `robinhood_get_equity_news` | both | News and analyst ratings |
+| `robinhood_get_earnings_results` | both | Earnings for a symbol (EPS estimate vs. actual) |
+| `robinhood_get_earnings_calendar` | both | Market-wide earnings calendar for a day window |
+| `robinhood_search` | both | Search stocks/ETFs, crypto pairs, or indexes |
+| `robinhood_get_movers` | standard | Market movers and popular stocks |
+| `robinhood_get_market_hours` | standard | Market hours for a date: is it a trading day, when each session opens/closes |
+| `robinhood_get_indexes` | both | Market index instruments (SPX, NDX, VIX, …) with ids |
+| `robinhood_get_index_quotes` | both | Current values for index instrument ids |
+| `robinhood_get_option_chains` | both | Option chains for an underlying (expirations, chain ids) |
+| `robinhood_get_option_instruments` | both | Option contracts of a chain (filter by expiration, strike, type) |
+| `robinhood_get_option_quotes` | both | Option market data with greeks |
+| `robinhood_get_option_positions` | both | Per-leg option positions |
+| `robinhood_get_option_orders` | both | Option order history |
+| `robinhood_get_option_historicals` | both | OHLC bars for option contracts |
+| `robinhood_get_crypto_quotes` | both | Crypto quotes |
+| `robinhood_get_crypto_positions` | both | Crypto holdings |
+| `robinhood_get_crypto_historicals` | standard | Crypto OHLCV history |
+| `robinhood_get_currency_pairs` | both | Tradable crypto pairs |
+| `robinhood_review_equity_order` | both | Simulate a stock order before placing (price-collar check, live quote) |
+| `robinhood_review_option_order` | both | Simulate an option order before placing (per-leg data, collateral) |
+| `robinhood_preview_crypto_order` | both | Preview a crypto order before placing (quote-based estimate) |
+| `robinhood_place_equity_order` | both | Place stock orders (market/limit/stop_market/stop_limit, incl. `sell_short`) |
+| `robinhood_place_option_order` | both | Place option orders (1–4 legs by option id) |
+| `robinhood_place_crypto_order` | both | Place crypto orders |
+| `robinhood_get_equity_orders` | both | Stock order history (filter by id, symbol, state) |
+| `robinhood_get_crypto_orders` | both | Crypto order history (filter by id, symbol, state) |
+| `robinhood_cancel_equity_order` | both | Cancel a stock order |
+| `robinhood_cancel_option_order` | both | Cancel an option order |
+| `robinhood_cancel_crypto_order` | both | Cancel a crypto order |
+| `robinhood_get_watchlists` | both | List your own watchlists (with list ids) |
+| `robinhood_get_watchlist_items` | both | Items of a watchlist (enriched with symbols) |
+| `robinhood_get_popular_watchlists` | both | Robinhood-curated lists to follow |
+| `robinhood_get_option_watchlist` | both | Your options watchlist — single-leg option contracts |
+| `robinhood_create_watchlist` | both | Create a new watchlist (confirm first) |
+| `robinhood_update_watchlist` | both | Rename / re-describe a watchlist (confirm first) |
+| `robinhood_add_to_watchlist` | both | Add symbols / indexes / crypto to a list (confirm first) |
+| `robinhood_remove_from_watchlist` | both | Remove items from a list (confirm first) |
+| `robinhood_follow_watchlist` | both | Follow a Robinhood-curated list (confirm first) |
+| `robinhood_unfollow_watchlist` | both | Unfollow a curated list (confirm first) |
+| `robinhood_add_option_to_watchlist` | both | Add long single-leg option contracts to the options watchlist (confirm first) |
+| `robinhood_remove_option_from_watchlist` | both | Remove single-leg option contracts from the options watchlist (confirm first) |
+| `robinhood_get_scans` | both | List your saved scanners (screeners) |
+| `robinhood_get_scanner_filter_specs` | both | Filter vocabulary for building scans (RSI/MACD/fundamentals/…) |
+| `robinhood_get_realized_pnl` | both | Realized P&L over a window, bucketed (computed FIFO; equity + crypto) |
+| `robinhood_get_pnl_trade_history` | both | Per-trade realized P&L (computed FIFO; equity + crypto) |
+| `robinhood_official_login` | agent | Sign in to Robinhood's hosted MCP (browser) |
+| `robinhood_cancel_advanced_order`, `robinhood_cancel_option_exercise`, `robinhood_create_alert`, `robinhood_create_scan`, `robinhood_delete_alert`, `robinhood_exercise_option`, `robinhood_get_advanced_orders`, `robinhood_get_alert_log`, `robinhood_get_alerts`, `robinhood_get_crypto_account_onboarding_info`, `robinhood_get_financials`, `robinhood_get_index_historicals`, `robinhood_get_limited_margin_upgrade_info`, `robinhood_get_option_level_upgrade_info`, `robinhood_get_politician_trades`, `robinhood_get_scanner_datapoints`, `robinhood_get_sec_filing`, `robinhood_get_sec_filing_facts`, `robinhood_get_sec_filing_facts_catalog`, `robinhood_get_sec_filing_index`, `robinhood_mark_alerts_read`, `robinhood_place_advanced_order`, `robinhood_preview_scan`, `robinhood_review_advanced_order`, `robinhood_run_scan`, `robinhood_update_alert`, `robinhood_update_scan_config`, `robinhood_update_scan_filters` | agent | No web endpoint: advanced (OCO) orders, option exercise, alerts, scanner writes and datapoints, financials, SEC filings, politician trades, index historicals, onboarding and upgrade info |
 
 ## Placing Orders
 
-Every order goes through **review → confirm → place**. `robinhood_review_equity_order` simulates the order over read-only endpoints (live quote + a reproduction of Robinhood's price collar) and places nothing; show its result to the user, get an explicit confirmation, then call `robinhood_place_stock_order`.
+Every order goes through **review → confirm → place**. `robinhood_review_equity_order` simulates the order over read-only endpoints (live quote + a reproduction of Robinhood's price collar) and places nothing; show its result to the user, get an explicit confirmation, then call `robinhood_place_equity_order`.
 
 **Side** — `buy`, `sell`, or `sell_short`:
 
@@ -200,7 +222,7 @@ Every order goes through **review → confirm → place**. `robinhood_review_equ
 
 Short sales additionally require a margin-enabled account, whole shares, `gfd` time-in-force, and either the regular or extended session — they are **not** available in the 24 Hour Market. Each constraint is checked client-side, so you get the reason rather than an opaque rejection.
 
-**Trading session** — `market_hours` is **required**, with no default:
+**Trading session** — `market_hours` defaults to `regular_hours`, as in the official tool:
 
 | Value | Window | Executes |
 |---|---|---|
@@ -208,7 +230,7 @@ Short sales additionally require a margin-enabled account, whole shares, `gfd` t
 | `extended_hours` | Pre / post-market | Limit orders only |
 | `all_day_hours` | 24 Hour Market (overnight) | Limit orders only |
 
-There's deliberately no default because an order tagged to the wrong session **silently queues for the next open instead of executing** — a failure that looks like success. A short sell placed outside regular hours is rejected unless the session says so.
+An order tagged to the wrong session **silently queues for the next open instead of executing** — a failure that looks like success — so name the session when trading outside regular hours; `robinhood_get_market_hours` says which one is live. A short sell placed outside regular hours is rejected unless the session says so.
 
 See [`examples/short-selling.ts`](examples/short-selling.ts) for a runnable walkthrough, and [`skills/robinhood-for-agents/trade.md`](skills/robinhood-for-agents/trade.md) for the full order flow.
 
@@ -237,7 +259,7 @@ The skill uses progressive disclosure — `SKILL.md` is the compact router, with
 
 | Feature | Claude Code | Codex | OpenClaw | Other MCP |
 |---------|:-----------:|:-----:|:--------:|:---------:|
-| 50 MCP tools | Yes | Yes | — | Yes |
+| MCP tools (both modes) | Yes | Yes | — | Yes |
 | Trading skill | Yes | — | Yes | — |
 | ClawHub install | — | — | Yes | — |
 | `onboard` setup | Yes | Yes | Yes | — |
@@ -281,6 +303,7 @@ npx robinhood-for-agents onboard
 # 2. In your container, set env vars:
 export ROBINHOOD_TOKENS_FILE=/path/to/tokens.enc
 export ROBINHOOD_TOKEN_KEY=<base64-key-from-step-1>
+export ROBINHOOD_MODE=standard   # or agent; its credential is official-mcp.enc beside ROBINHOOD_TOKENS_FILE, under the same key
 ```
 
 ```yaml
@@ -293,6 +316,7 @@ services:
     environment:
       ROBINHOOD_TOKENS_FILE: "/app/tokens.enc"
       ROBINHOOD_TOKEN_KEY: "${ROBINHOOD_TOKEN_KEY}"
+      ROBINHOOD_MODE: "standard"
 ```
 
 Token refresh writes re-encrypted tokens back to the file automatically — keep the mount read-write. Refresh tokens are single-use: Robinhood kills the old one the instant a new one is issued, so a failed write leaves the only usable copy in memory and the container is stranded after restart. The client logs a `CRITICAL` message to stderr when a save fails — alert on it. See [docs/DOCKER.md](docs/DOCKER.md).
@@ -304,7 +328,7 @@ Token refresh writes re-encrypted tokens back to the file automatically — keep
 - **Pluggable token storage** — `KeychainTokenStore` (OS keychain, default) or `EncryptedFileTokenStore` (AES-256-GCM, for Docker/headless). See [SECURITY.md](docs/SECURITY.md) for the threat model.
 - Fund transfers and bank operations are **blocked** — never exposed
 - Bulk cancel operations are **blocked**
-- All order placements require explicit parameters (no dangerous defaults). `robinhood_place_stock_order` additionally requires the trading session — it has no default, so an agent cannot silently tag an order to the wrong one. (In the client library, `marketHours` is optional for backwards compatibility and falls back to regular hours; pass it explicitly.)
+- Order placements require the account, symbol, side, and order type explicitly. `time_in_force` and `market_hours` default to `gfd` and `regular_hours`, matching the official tools.
 - Opening a short requires the explicit `sell_short` side; a plain `sell` can only close a long, so a mis-parsed "sell" can never open an unbounded-risk position
 - Order writes resolve the symbol by exact match, never a fuzzy search, so an order cannot land on a same-prefix or relisted duplicate ticker
 - Skills always confirm with the user before placing orders
