@@ -60,7 +60,7 @@
 ```
 src/client/                    <- robinhood-for-agents client library
 ├── index.ts                   <- Exports: RobinhoodClient, getClient(), login()
-├── client.ts                  <- RobinhoodClient class (81 async methods)
+├── client.ts                  <- RobinhoodClient class (82 async methods)
 ├── auth.ts                    <- Direct auth: TokenStore load, Bearer injection, proactive +
 │                                 401 refresh, rotation recovery (adoptFromStore)
 ├── token-store.ts             <- TokenStore interface + KeychainTokenStore + EncryptedFileTokenStore
@@ -74,7 +74,9 @@ src/client/                    <- robinhood-for-agents client library
 
 src/compute/                   <- Pure derived-data modules (no HTTP)
 ├── realized-pnl.ts            <- FIFO realized P&L + bucketing
-└── order-review.ts            <- Price-collar simulation for order review
+├── order-review.ts            <- Price-collar simulation for order review
+├── indicators.ts              <- Technical indicators over OHLCV bars
+└── historicals-window.ts      <- [start, end] bar request -> REST span/interval grid
 
 src/server/                    <- robinhood-for-agents MCP server
 ├── index.ts                   <- main() export, StdioServerTransport
@@ -431,7 +433,7 @@ Standard mode (59): the tools access the client via the `getClient()` singleton 
 | `tax-lots.ts` (1) | `get_equity_tax_lots` |
 | `official/forward.ts` (81, agent mode) | every row of the Parity table, plus `official_login` |
 
-Tools that mirror an official Robinhood Trading MCP tool take its name and input schema; `docs/official-mcp-tools.md` holds the official schemas and the Parity table, and `__tests__/server/official-parity.test.ts` fails on any drift. Official enum-like parameters are plain strings in the listed schema and validated at call time (`stringEnum` in `_helpers.ts`), because the official schemas carry no `enum`. The [README](../README.md#modes) describes each tool; [`skills/robinhood-for-agents/reference.md`](../skills/robinhood-for-agents/reference.md) documents parameters and response shapes; [`skills/robinhood-for-agents/client-api.md`](../skills/robinhood-for-agents/client-api.md) maps each tool to the client methods it wraps.
+Tools that mirror an official Robinhood Trading MCP tool take its name and input schema; `docs/official-mcp-tools.md` holds the official schemas and the Parity table, and `__tests__/server/official-parity.test.ts` fails on any drift. Official enum-like parameters are plain strings in the listed schema and validated at call time (`stringEnum` in `_helpers.ts`), because the official schemas carry no `enum`. The [README](../README.md#tools) describes each tool; [`skills/robinhood-for-agents/reference.md`](../skills/robinhood-for-agents/reference.md) documents parameters and response shapes; [`skills/robinhood-for-agents/client-api.md`](../skills/robinhood-for-agents/client-api.md) maps each tool to the client methods it wraps.
 
 ## Order Placement
 

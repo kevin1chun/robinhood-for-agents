@@ -87,7 +87,6 @@ Agents connect to the gateway on port 3001. The upstream MCP server (port 3000) 
 | `AGENT_VERIFIER` | `structural` | Verifier type: `structural` (dev only, blocked when auth enabled), `shared-secret` (HMAC-SHA256) |
 | `AGENT_AUTH_SECRET` | — | HMAC secret for `shared-secret` verifier (min 32 chars). Generate with `openssl rand -hex 32` |
 | `AGENT_AUTH_DEFAULT_POLICY` | `deny` | Policy for unmapped tools: `deny` or `allow` |
-| `ROBINHOOD_ACCESS_TOKEN` | — | Robinhood API token (for MCP server) |
 
 > [!IMPORTANT]
 > For any non-localhost deployment, place a TLS-terminating reverse proxy

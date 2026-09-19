@@ -86,5 +86,5 @@ These operations are **never exposed** through MCP tools or skills.
 ### General
 - Access-token lifetime varies (~6–8.5 days observed). Tokens renew automatically — proactively ~24h before expiry, and on a 401 as a fallback — so a session in regular use stays alive; one left idle past the refresh-token lifetime lapses and needs a new browser login
 - Browser-based login only — no credentials pass through the tool layer
-- Session tokens stored in OS keychain via `Bun.secrets` (macOS Keychain Services) — no plaintext fallback
+- No plaintext credential on disk: standard-mode session tokens live in the OS keychain via `Bun.secrets` (default) or an AES-256-GCM file; the agent-mode credential lives only in an AES-256-GCM file keyed by `ROBINHOOD_TOKEN_KEY`, never the keychain
 - See [SECURITY.md](./SECURITY.md) for the full threat model and deployment tiers

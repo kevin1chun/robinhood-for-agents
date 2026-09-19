@@ -46,6 +46,10 @@ Two TokenStore adapters are provided:
 
 Auto-detection: if `ROBINHOOD_TOKENS_FILE` is set, the SDK uses `EncryptedFileTokenStore`; otherwise it uses `KeychainTokenStore`.
 
+## Agent-mode credential
+
+Agent mode (`--mode agent`) holds a second, separate OAuth credential for Robinhood's hosted MCP, minted by `robinhood_official_login` (PKCE browser sign-in, its own registered client; `src/server/official/auth.ts`). Neither credential works on the other's surface. It is stored only in `official-mcp.enc` (beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/`), AES-256-GCM, mode 0600, keyed by `ROBINHOOD_TOKEN_KEY` alone: it never touches the keychain, and a missing key is an error, not a generated key. Its refresh tokens rotate single-use like the REST session's, and the rotated pair is saved before use. Orders through it reach the Agentic account only. The env-var threat model of [Scenario B](#scenario-b-encryptedfiletokenstore-with-key-in-same-environment) applies to it in every deployment.
+
 ## Token lifetime and rotation
 
 Refresh tokens are **single-use**. Every successful refresh returns a *new* `refresh_token` and Robinhood invalidates the old one immediately — replaying it returns `HTTP 401 invalid_grant`. Issuing a new token family also revokes the previous **access** token.

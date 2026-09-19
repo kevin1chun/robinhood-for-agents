@@ -3,7 +3,7 @@
 AI-native Robinhood trading interface — MCP server + TypeScript client library.
 
 ## Project Structure
-- `src/client/` — Robinhood API client (81 async methods)
+- `src/client/` — Robinhood API client (82 async methods)
 - `src/server/` — MCP server, one mode per process: standard (59 tools, `src/server/tools/`) or agent (81 tools, `src/server/official/`); official-tool parity table: `docs/official-mcp-tools.md`
 - `bin/` — CLI entry point (`robinhood-for-agents`)
 - `skills/` — Claude Code skills for interactive use
@@ -62,7 +62,7 @@ await rh.restoreSession();
 ```
 - All methods are `async` (native `fetch` under the hood)
 - Multi-account is first-class: every account-scoped method accepts `accountNumber`
-- Session cached in OS keychain via `Bun.secrets` (macOS Keychain Services) — no plaintext fallback, no tokens on disk
+- Standard-mode session cached in OS keychain via `Bun.secrets` (macOS Keychain Services) by default, or an AES-256-GCM file when `ROBINHOOD_TOKENS_FILE` is set — no plaintext fallback
 - Token refresh via `refresh_token` + `device_token` — **proactive** (pre-request hook renews 24h before `expires_at`, `REFRESH_SKEW_SEC` in `src/client/auth.ts`) *and* reactive (on 401). Refresh tokens are single-use: every refresh rotates them and kills the previous one
 - Proper exceptions: `AuthenticationError`, `TokenExpiredError` (subclass — a 401 that survived the refresh retry; means re-login), `APIError`
 - **Do NOT use `phoenix.robinhood.com`** — it rejects TLS. Use `api.robinhood.com` endpoints only.
@@ -85,7 +85,7 @@ Standard mode signs in with `robinhood_browser_login` (the Chrome session, every
 - A 401 that survives the refresh retry raises `TokenExpiredError` ("re-authenticate with browser login"), not a bare `APIError: HTTP 401` (`src/client/http.ts`)
 - `robinhood_check_session` **probes the API** rather than checking that tokens exist: `logged_in` | `expired` (with re-login instructions) | `unknown` (transient/network) | `not_authenticated`
 - **Agent-mode credential:** agent mode (`src/server/official/`) uses a second, separate OAuth credential minted by `robinhood_official_login` (PKCE browser sign-in, own DCR client), stored only in an AES-256-GCM file, never the keychain (`official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`; key from `ROBINHOOD_TOKEN_KEY` only, and a missing key is an error); single-use refresh rotation, saved before use, adopt-on-conflict like the REST path; trades the Agentic account only
-- **Docker / headless:** Use `EncryptedFileTokenStore` — set `ROBINHOOD_TOKENS_FILE` and `ROBINHOOD_TOKEN_KEY` env vars. The `onboard` command can export encrypted tokens for container use.
+- **Docker / headless:** Use `EncryptedFileTokenStore` — set `ROBINHOOD_TOKENS_FILE` and `ROBINHOOD_TOKEN_KEY` env vars. The `onboard` command can export encrypted tokens for container use (standard mode; agent mode mounts the directory holding `official-mcp.enc`, see docs/DOCKER.md#agent-mode). `install --mode agent` does not pass `ROBINHOOD_TOKEN_KEY`; register with `claude mcp add … -e ROBINHOOD_TOKEN_KEY=…` instead.
 
 ## Safety Rules
 - **NEVER** place bulk cancel operations

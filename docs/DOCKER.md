@@ -1,6 +1,6 @@
 # Docker (OpenClaw, etc.)
 
-**TL;DR** -- Run `onboard` on the host to login and export an encrypted token file. Mount the file into the container **read-write** (the SDK rotates and rewrites tokens) and pass the encryption key as an env var.
+**TL;DR** -- Standard mode: run `onboard` on the host to login and export an encrypted token file. Mount the file into the container **read-write** (the SDK rotates and rewrites tokens) and pass the encryption key as an env var. Agent mode: see [Agent mode](#agent-mode).
 
 ---
 
@@ -32,7 +32,7 @@ npx robinhood-for-agents onboard
 Select "Docker container / remote host" when prompted. The onboard flow will:
 1. Open Chrome for Robinhood login (captures OAuth tokens)
 2. Encrypt tokens to a file using AES-256-GCM
-3. Print the encryption key and env var commands to copy into your container config
+3. Copy the encryption key to the clipboard and print the env vars to set in your container config
 
 After onboard completes, you will have:
 - An encrypted token file at `./tokens.enc` — relative to wherever you ran `onboard` (this is the *export* artifact from `onboard.ts`, distinct from `EncryptedFileTokenStore`'s own built-in fallback path `~/.robinhood-for-agents/tokens.enc`, which only applies when no path or `ROBINHOOD_TOKENS_FILE` is given)
@@ -107,6 +107,30 @@ docker compose up -d --force-recreate agent
 ```
 
 If you rotated the encryption key during onboard, update `ROBINHOOD_TOKEN_KEY` too.
+
+---
+
+## Agent mode
+
+The agent-mode server (`--mode agent` or `ROBINHOOD_MODE=agent`) keeps its credential in `official-mcp.enc` in the directory of `ROBINHOOD_TOKENS_FILE` (only the directory is used; the file itself need not exist), encrypted under `ROBINHOOD_TOKEN_KEY`. It never reads the keychain or `tokens.enc`.
+
+1. On the host, sign in once: run the agent-mode entry with `ROBINHOOD_TOKEN_KEY` set and `ROBINHOOD_TOKENS_FILE=$PWD/rh/tokens.enc`, and call `robinhood_official_login`. The sign-in needs a browser that reaches the server's `127.0.0.1` callback, which a container does not have. The credential lands in `./rh/official-mcp.enc`.
+2. Stop the host entry: refresh tokens are single-use, so only one process may hold the credential.
+3. Mount the directory read-write and pass the same key:
+
+```yaml
+services:
+  agent:
+    image: your-agent-image
+    environment:
+      ROBINHOOD_MODE: "agent"
+      ROBINHOOD_TOKENS_FILE: "/secrets/tokens.enc"
+      ROBINHOOD_TOKEN_KEY: "${ROBINHOOD_TOKEN_KEY}"
+    volumes:
+      - ./rh:/secrets:rw
+```
+
+A single-file mount leaves `official-mcp.enc`, which every refresh rewrites, outside the volume. When a refresh is rejected, every tool answers an error naming `robinhood_official_login`; repeat step 1 and restart the container.
 
 ---
 

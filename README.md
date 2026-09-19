@@ -10,18 +10,28 @@ Robinhood for AI agents — MCP server with two modes + TypeScript client librar
 - **MCP server in two modes** for any MCP-compatible AI agent: standard (59 tools on the web API) or agent (81 tools relayed to Robinhood's hosted MCP)
 - **Unified trading skill** for guided workflows (Claude Code, OpenClaw, [ClawHub](https://clawhub.ai/kevin1chun/robinhood-for-agents))
 - **TypeScript client library** (70+ async methods) for programmatic use
-- **Pluggable token storage** — OS keychain (default) or encrypted file (Docker/headless)
+- **Pluggable token storage** (standard mode) — OS keychain (default) or encrypted file (Docker/headless)
 - **Self-renewing sessions** — tokens refresh ahead of expiry and on 401, so continuous use never needs a re-login
 
 Compatible with **Claude Code**, **Codex**, **OpenClaw**, and any MCP-compatible agent.
 
+## Modes
+
+The server runs in one mode per process, chosen at launch: `--mode agent|standard`, else `ROBINHOOD_MODE`, else `standard`.
+
+- **Standard** (59 tools): Robinhood's web API (`api.robinhood.com`) under the Chrome session from `robinhood_browser_login`. Serves every account.
+- **Agent** (81 tools): the 80 official Robinhood Trading MCP tools, each relayed unchanged to Robinhood's hosted MCP (`agent.robinhood.com`), plus `robinhood_official_login`, a one-time browser sign-in for Robinhood's official credential. Orders reach your Agentic account only; other accounts are read-only there. The credential is kept only in an AES-256-GCM file, never the OS keychain: `official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`, encrypted under `ROBINHOOD_TOKEN_KEY` (32 random bytes, base64: `openssl rand -base64 32`), which must be set in the agent-mode server's environment; without it every tool answers an error saying so.
+
+To run both, register two entries: `robinhood-for-agents` (standard) and `robinhood-agent` (`--mode agent`). Tool names are the same in both; your agent tells them apart by entry. Which tools each mode serves: [Tools](#tools).
+
 ## Prerequisites
 
 - [Bun](https://bun.sh/) v1.3+
-- Google Chrome for login (driven by `playwright-core` via `channel: "chrome"`, no bundled browser). Chrome must be installed — there's no Brave/Chromium fallback or `BROWSER_PATH` override yet.
+- Standard mode: Google Chrome for login (driven by `playwright-core` via `channel: "chrome"`, no bundled browser). There's no Brave/Chromium fallback or `BROWSER_PATH` override.
+- Agent mode: `ROBINHOOD_TOKEN_KEY` (see [Modes](#modes)); the one-time sign-in opens the browser with macOS `open`
 - A Robinhood account
 
-## Quick Start
+## Install
 
 ### Guided setup (recommended)
 
@@ -30,7 +40,7 @@ Compatible with **Claude Code**, **Codex**, **OpenClaw**, and any MCP-compatible
 npx robinhood-for-agents onboard
 ```
 
-The interactive setup detects your agent, registers the MCP server, installs skills (where supported), and walks you through Robinhood login. It handles both local and Docker deployments — just pick "This machine" or "Docker container / remote host" when prompted.
+The interactive setup asks for your agent and, for Claude Code and Codex, the mode; registers the MCP server; installs skills (where supported); and, in standard mode, walks you through the Chrome login and asks whether the agent runs on this machine or in Docker. It does not set `ROBINHOOD_TOKEN_KEY`: for agent mode, register the entry with the key as under [Manual setup](#manual-setup) instead.
 
 You can also specify your agent directly:
 
@@ -63,7 +73,13 @@ cd your-project
 npx robinhood-for-agents install --skills
 ```
 
-From a source checkout, register the server as `claude mcp add -s user robinhood-for-agents -- bun run /path/to/checkout/bin/robinhood-for-agents.ts` instead. For [agent mode](#modes), add a second entry: `claude mcp add -s user robinhood-agent -e ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents --mode agent` (or `npx robinhood-for-agents install --mode agent`).
+For [agent mode](#modes), add a second entry with the key:
+
+```bash
+claude mcp add -s user robinhood-agent -e ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents --mode agent
+```
+
+From a source checkout, use `-- bun run /path/to/checkout/bin/robinhood-for-agents.ts` (plus `--mode agent`) instead. `npx robinhood-for-agents install --mode agent` registers `robinhood-agent` without the key; if you used it, run `claude mcp remove robinhood-agent` and the command above.
 
 Restart Claude Code to pick up the changes. Claude Code supports the unified trading skill in addition to the MCP tools — see [Skill](#skill).
 </details>
@@ -108,34 +124,25 @@ Add to your MCP client's config (e.g. `~/Library/Application Support/Claude/clau
     "robinhood-for-agents": {
       "command": "bunx",
       "args": ["robinhood-for-agents"]
+    },
+    "robinhood-agent": {
+      "command": "bunx",
+      "args": ["robinhood-for-agents", "--mode", "agent"],
+      "env": { "ROBINHOOD_TOKEN_KEY": "<base64 key>" }
     }
   }
 }
 ```
 
-From a source checkout, use `"command": "bun", "args": ["run", "/absolute/path/to/checkout/bin/robinhood-for-agents.ts"]` instead.
+Keep only the entries for the modes you use. From a source checkout, use `"command": "bun", "args": ["run", "/absolute/path/to/checkout/bin/robinhood-for-agents.ts"]` (plus `"--mode", "agent"`) instead.
 </details>
 
-## Example
+## Sign in
 
-> "Buy 1 50-delta SPX call expiring tomorrow"
+- **Standard:** start your agent and say "setup robinhood" (or call `robinhood_browser_login` directly). Chrome opens to the real Robinhood login page — log in with your credentials and MFA. The session is cached in your OS keychain (or the encrypted file named by `ROBINHOOD_TOKENS_FILE`) and renews itself: the client refreshes the token a day before it expires, and again on any 401. Regular use keeps you logged in indefinitely — a browser re-login is only needed if the client sits unused long enough for the refresh chain to lapse. Ask your agent to run `robinhood_check_session` if you're unsure.
+- **Agent:** ask your agent to run `robinhood_official_login`. It opens your default browser (with the macOS `open` command) to Robinhood's sign-in for its hosted MCP, and you approve there once; the browser must reach the server's `127.0.0.1` callback. Until it has run, every agent-mode tool answers an error naming it.
 
-![SPX options chain with greeks and order summary](docs/images/spx-options-example.png)
-
-## Authenticate
-
-Start your agent and say "setup robinhood" (or call `robinhood_browser_login` directly). Your browser will open to the real Robinhood login page — log in with your credentials and MFA. The session is cached in your OS keychain and renews itself: the client refreshes the token a day before it expires, and again on any 401. Regular use keeps you logged in indefinitely — a browser re-login is only needed if the client sits unused long enough for the refresh chain to lapse. Ask your agent to run `robinhood_check_session` if you're unsure.
-
-In agent mode, ask your agent to run `robinhood_official_login` instead: it opens your default browser to Robinhood's sign-in for its hosted MCP, and you approve there once.
-
-## Modes
-
-The server runs in one mode per process, chosen at launch: `--mode agent|standard`, else `ROBINHOOD_MODE`, else `standard`.
-
-- **Standard** (59 tools): Robinhood's web API (`api.robinhood.com`) under the Chrome session from `robinhood_browser_login`. Serves every account.
-- **Agent** (81 tools): the 80 official Robinhood Trading MCP tools, each relayed unchanged to Robinhood's hosted MCP (`agent.robinhood.com`), plus `robinhood_official_login`, a one-time browser sign-in for Robinhood's official credential. Until it has run, every tool answers an error naming it. Orders reach your Agentic account only; other accounts are read-only there. The credential is kept only in an AES-256-GCM file, never the OS keychain: `official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`, encrypted under `ROBINHOOD_TOKEN_KEY` (32 random bytes, base64: `openssl rand -base64 32`), which must be set in the agent-mode server's environment.
-
-To run both, register two entries, `robinhood-for-agents` (standard) and `robinhood-agent` (`--mode agent`; `install --mode agent` does this for Claude Code). Tool names are the same in both; your agent tells them apart by entry.
+## Tools
 
 Tool names and input schemas are the official ones, prefixed `robinhood_` ([`docs/official-mcp-tools.md`](docs/official-mcp-tools.md#parity)). The official hosted server's measured rate limit is in [`docs/official-mcp-tools.md`](docs/official-mcp-tools.md#measured-rate-limit).
 
@@ -205,6 +212,12 @@ Mode `both`: the web API in standard mode, relayed in agent mode.
 | `robinhood_official_login` | agent | Sign in to Robinhood's hosted MCP (browser) |
 | `robinhood_cancel_advanced_order`, `robinhood_cancel_option_exercise`, `robinhood_create_alert`, `robinhood_create_scan`, `robinhood_delete_alert`, `robinhood_exercise_option`, `robinhood_get_advanced_orders`, `robinhood_get_alert_log`, `robinhood_get_alerts`, `robinhood_get_crypto_account_onboarding_info`, `robinhood_get_financials`, `robinhood_get_index_historicals`, `robinhood_get_limited_margin_upgrade_info`, `robinhood_get_option_level_upgrade_info`, `robinhood_get_politician_trades`, `robinhood_get_scanner_datapoints`, `robinhood_get_sec_filing`, `robinhood_get_sec_filing_facts`, `robinhood_get_sec_filing_facts_catalog`, `robinhood_get_sec_filing_index`, `robinhood_mark_alerts_read`, `robinhood_place_advanced_order`, `robinhood_preview_scan`, `robinhood_review_advanced_order`, `robinhood_run_scan`, `robinhood_update_alert`, `robinhood_update_scan_config`, `robinhood_update_scan_filters` | agent | No web endpoint: advanced (OCO) orders, option exercise, alerts, scanner writes and datapoints, financials, SEC filings, politician trades, index historicals, onboarding and upgrade info |
 
+## Example
+
+> "Buy 1 50-delta SPX call expiring tomorrow"
+
+![SPX options chain with greeks and order summary](docs/images/spx-options-example.png)
+
 ## Placing Orders
 
 Every order goes through **review → confirm → place**. `robinhood_review_equity_order` simulates the order over read-only endpoints (live quote + a reproduction of Robinhood's price collar) and places nothing; show its result to the user, get an explicit confirmation, then call `robinhood_place_equity_order`.
@@ -251,7 +264,7 @@ clawhub install robinhood-for-agents
 | Trading | "buy 10 AAPL", "sell my position" |
 | Options | "show AAPL options", "SPX calls" |
 
-**Dual-mode:** The skill works with MCP tools (Claude Code) or standalone via the TypeScript client API and `bun` (OpenClaw, any agent with shell access). No MCP server required.
+The skill works with MCP tools (Claude Code) or standalone via the TypeScript client API and `bun` (OpenClaw, any agent with shell access). The client API is the web API of standard mode; the agent-only tools need the agent-mode server.
 
 The skill uses progressive disclosure — `SKILL.md` is the compact router, with domain-specific files (`portfolio.md`, `trade.md`, etc.) and a full `client-api.md` reference loaded on demand.
 
@@ -279,32 +292,9 @@ const portfolio = await client.buildHoldings();
 
 ## Docker / Headless Deployment
 
-When deploying in Docker, headless servers, or cloud environments where no OS keychain is available, use the `EncryptedFileTokenStore`:
+Where no OS keychain is available, both modes keep their credential in an encrypted file under `ROBINHOOD_TOKEN_KEY`, and both sign in on the host, since a container has no browser.
 
-### Setup
-
-The guided setup handles Docker — pick "Docker container / remote host" when prompted:
-
-```bash
-npx robinhood-for-agents onboard
-```
-
-This will:
-1. Open Chrome for Robinhood login (on the host)
-2. Encrypt tokens and export to `./tokens.enc`
-3. Print the encryption key and env vars to set in your container
-
-### Manual setup
-
-```bash
-# 1. Login on the host
-npx robinhood-for-agents onboard
-
-# 2. In your container, set env vars:
-export ROBINHOOD_TOKENS_FILE=/path/to/tokens.enc
-export ROBINHOOD_TOKEN_KEY=<base64-key-from-step-1>
-export ROBINHOOD_MODE=standard   # or agent; its credential is official-mcp.enc beside ROBINHOOD_TOKENS_FILE, under the same key
-```
+**Standard:** run `npx robinhood-for-agents onboard` on the host and pick "Docker container / remote host". It opens Chrome for the login, exports the tokens to `./tokens.enc`, copies the encryption key to the clipboard, and prints the env vars to set in the container:
 
 ```yaml
 # docker-compose.yml
@@ -316,8 +306,9 @@ services:
     environment:
       ROBINHOOD_TOKENS_FILE: "/app/tokens.enc"
       ROBINHOOD_TOKEN_KEY: "${ROBINHOOD_TOKEN_KEY}"
-      ROBINHOOD_MODE: "standard"
 ```
+
+**Agent:** the credential file `official-mcp.enc` lives in the directory of `ROBINHOOD_TOKENS_FILE`, so mount that directory, not a single file, and set `ROBINHOOD_MODE: "agent"`. See [docs/DOCKER.md](docs/DOCKER.md#agent-mode).
 
 Token refresh writes re-encrypted tokens back to the file automatically — keep the mount read-write. Refresh tokens are single-use: Robinhood kills the old one the instant a new one is issued, so a failed write leaves the only usable copy in memory and the container is stranded after restart. The client logs a `CRITICAL` message to stderr when a save fails — alert on it. See [docs/DOCKER.md](docs/DOCKER.md).
 
@@ -335,7 +326,7 @@ Token refresh writes re-encrypted tokens back to the file automatically — keep
 - See [ACCESS_CONTROLS.md](docs/ACCESS_CONTROLS.md) for the full risk matrix
 - For multi-agent deployments, see [AGENT-IDENTITY.md](docs/AGENT-IDENTITY.md) for agent identity verification and per-tool authorization patterns
 
-## Authentication
+## Authentication (standard mode and the client library)
 
 **Login**: Call `robinhood_browser_login` (MCP) or say "setup robinhood" (skills) to open Chrome. Log in normally with your credentials and MFA. Playwright passively intercepts the OAuth token response — it never clicks buttons or fills forms.
 
@@ -345,7 +336,7 @@ Token refresh writes re-encrypted tokens back to the file automatically — keep
 |---|---|---|
 | `KeychainTokenStore` (default) | Local dev, macOS/Linux with desktop | Nothing — works out of the box |
 | `EncryptedFileTokenStore` | Docker, headless servers, CI, cloud | Set `ROBINHOOD_TOKENS_FILE` + `ROBINHOOD_TOKEN_KEY` env vars |
-| Direct `accessToken` | Serverless, testing, short-lived scripts | Pass `accessToken` to constructor or set `ROBINHOOD_ACCESS_TOKEN` env var — no refresh; expiry raises `TokenExpiredError` |
+| Direct `accessToken` | Serverless, testing, short-lived scripts | Pass `accessToken` to the constructor — no refresh; expiry raises `TokenExpiredError` |
 
 **How it works**: `restoreSession()` loads tokens from the configured `TokenStore`, injects `Authorization: Bearer` headers directly into API requests, and registers both refresh paths — a pre-request hook that renews the token 24 hours ahead of expiry, and a 401 handler that refreshes and retries once. Sessions saved before token expiry was tracked are backfilled on load, so existing keychain logins get proactive renewal without re-authenticating.
 
