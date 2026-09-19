@@ -1,7 +1,7 @@
 /**
  * Parity with the official Robinhood Trading MCP. Reads the official tools from
  * docs/official-mcp-tools.json and the Parity table from docs/official-mcp-tools.md.
- * Agent mode (all 80) lists each tool's title, description and annotations verbatim and its
+ * Agent mode (all 81) lists each tool's title, description and annotations verbatim and its
  * input and output schemas; standard mode (all but the agent-only rows) its input schema.
  * A schema is compared by property names, required set, enum values, and primitive type,
  * recursively. Nullability is ignored (the official schemas mark optional arrays nullable).
@@ -107,19 +107,19 @@ const webServed = [...status].filter(([, s]) => s !== "agent-only").map(([n]) =>
 const agentOnly = [...status].filter(([, s]) => s === "agent-only").map(([n]) => n);
 
 describe("official MCP parity", () => {
-  it("the Parity table covers all 80 official tools", () => {
-    expect(official.size).toBe(80);
+  it("the Parity table covers all 81 official tools", () => {
+    expect(official.size).toBe(81);
     expect([...status.keys()].sort()).toEqual([...official.keys()].sort());
   });
 
-  it("every status is known; 28 are agent-only", () => {
+  it("every status is known; 29 are agent-only", () => {
     expect(
       [...status.values()].filter((s) => !["same", "renamed", "new", "agent-only"].includes(s)),
     ).toEqual([]);
-    expect(agentOnly).toHaveLength(28);
+    expect(agentOnly).toHaveLength(29);
   });
 
-  it("agent mode lists exactly the 80 official tools plus robinhood_official_login", () => {
+  it("agent mode lists exactly the 81 official tools plus robinhood_official_login", () => {
     expect([...agent.keys()].sort()).toEqual(
       [...[...official.keys()].map((n) => `robinhood_${n}`), "robinhood_official_login"].sort(),
     );

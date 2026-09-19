@@ -1,4 +1,4 @@
-Official Robinhood Trading MCP (https://agent.robinhood.com/mcp/trading): its measured rate limit and the fork's parity with its 80 tools. The tools themselves, every field the server's `tools/list` answers, are [`official-mcp-tools.json`](official-mcp-tools.json), rewritten by `bun run refresh-official-tools` after `robinhood_official_login`. Source of truth for parity.
+Official Robinhood Trading MCP (https://agent.robinhood.com/mcp/trading): its measured rate limit and the fork's parity with its 81 tools. The tools themselves, every field the server's `tools/list` answers, are [`official-mcp-tools.json`](official-mcp-tools.json), rewritten by `bun run refresh-official-tools` after `robinhood_official_login`. Source of truth for parity.
 
 ## Measured rate limit
 
@@ -49,6 +49,7 @@ Fork tool per official tool. `same`, `renamed` and `new` are served by the web A
 | `get_currency_pairs` | `robinhood_get_currency_pairs` | new |  |
 | `get_earnings_calendar` | `robinhood_get_earnings_calendar` | same | Built from `range=Nday` windows relative to today, filtered by report date. |
 | `get_earnings_results` | `robinhood_get_earnings_results` | same |  |
+| `get_equity_analyst_ratings` | `robinhood_get_equity_analyst_ratings` | agent-only |  |
 | `get_equity_fundamentals` | `robinhood_get_equity_fundamentals` | renamed | `bounds` regular only. |
 | `get_equity_historicals` | `robinhood_get_equity_historicals` | renamed | [start, end] mapped onto the REST span grid; `adjustment_type` split only. |
 | `get_equity_news` | `robinhood_get_equity_news` | renamed | Also returns analyst ratings. |

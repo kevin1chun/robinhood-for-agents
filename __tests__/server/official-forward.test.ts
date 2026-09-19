@@ -64,7 +64,10 @@ function fakeUpstream() {
     { inputSchema: z.fromJSONSchema(official.get("get_financials")?.inputSchema as never) },
     async (args: unknown) => {
       calls.push({ name: "get_financials", args });
-      return { content: [{ type: "text", text: "revenue 100" }] };
+      return {
+        content: [{ type: "text", text: "revenue 100" }],
+        structuredContent: { data: { results: [] }, guide: "g" },
+      };
     },
   );
   server.registerTool(
@@ -72,7 +75,10 @@ function fakeUpstream() {
     { inputSchema: z.fromJSONSchema(official.get("get_equity_quotes")?.inputSchema as never) },
     async (args: unknown) => {
       calls.push({ name: "get_equity_quotes", args });
-      return { content: [{ type: "text", text: "AAPL 150" }] };
+      return {
+        content: [{ type: "text", text: "AAPL 150" }],
+        structuredContent: { data: { results: [] }, guide: "g" },
+      };
     },
   );
   server.registerTool(

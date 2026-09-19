@@ -8,7 +8,7 @@ The server runs in one mode per process. **Standard** (entry `robinhood-for-agen
 |---|---|
 | both | every tool in this file not listed below |
 | standard only | `robinhood_browser_login`, `robinhood_check_session`, `robinhood_get_account`, `robinhood_get_short_interest`, `robinhood_get_movers`, `robinhood_get_market_hours`, `robinhood_get_crypto_historicals` |
-| agent only | `robinhood_official_login` and the 28 under [Agent mode only](#agent-mode-only) |
+| agent only | `robinhood_official_login` and the 29 under [Agent mode only](#agent-mode-only) |
 
 ## Auth
 
@@ -597,5 +597,5 @@ Opens the default browser to Robinhood's sign-in for the hosted MCP; the user ap
 | Option exercise | `exercise_option`, `cancel_option_exercise` |
 | Alerts | `get_alerts`, `get_alert_log`, `create_alert`, `update_alert`, `delete_alert`, `mark_alerts_read` |
 | Scanners | `get_scanner_datapoints`, `preview_scan`, `run_scan`, `create_scan`, `update_scan_config`, `update_scan_filters` |
-| Research | `get_financials`, `get_politician_trades`, `get_index_historicals`, `get_sec_filing`, `get_sec_filing_facts`, `get_sec_filing_facts_catalog`, `get_sec_filing_index` |
+| Research | `get_financials`, `get_equity_analyst_ratings`, `get_politician_trades`, `get_index_historicals`, `get_sec_filing`, `get_sec_filing_facts`, `get_sec_filing_facts_catalog`, `get_sec_filing_index` |
 | Account info | `get_option_level_upgrade_info`, `get_limited_margin_upgrade_info`, `get_crypto_account_onboarding_info` |

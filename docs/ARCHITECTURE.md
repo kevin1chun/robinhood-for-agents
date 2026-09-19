@@ -40,7 +40,7 @@
 `src/client/` is the TypeScript API client. `src/server/` is the MCP server, which runs in one mode per process (`--mode agent|standard`, else `ROBINHOOD_MODE`, else `standard`; `src/server/mode.ts`):
 
 - **Standard:** the 59 tools of `src/server/tools/` call Robinhood's web API through `src/client/` with the Chrome session's Bearer token, as drawn above.
-- **Agent:** `src/server/official/forward.ts` registers the 80 official tools with Robinhood's own title, description, schemas and annotations, verbatim (from `docs/official-mcp-tools.json`, the hosted server's `tools/list`, rewritten by `bun run refresh-official-tools`) plus `robinhood_official_login`, and relays each call unchanged to Robinhood's hosted MCP at `agent.robinhood.com` under the official OAuth credential (`official/auth.ts`). No web-API code path runs.
+- **Agent:** `src/server/official/forward.ts` registers the 81 official tools with Robinhood's own title, description, schemas and annotations, verbatim (from `docs/official-mcp-tools.json`, the hosted server's `tools/list`, rewritten by `bun run refresh-official-tools`) plus `robinhood_official_login`, and relays each call unchanged to Robinhood's hosted MCP at `agent.robinhood.com` under the official OAuth credential (`official/auth.ts`). No web-API code path runs.
 
 ## Tech Stack
 
@@ -415,7 +415,7 @@ Every account-scoped method accepts `accountNumber?: string`:
 
 ## MCP Tools
 
-Standard mode (59): the tools access the client via the `getClient()` singleton and are registered by module in `src/server/tools/`. Agent mode (81): `src/server/official/forward.ts` registers every official tool in the Parity table plus `official_login`.
+Standard mode (59): the tools access the client via the `getClient()` singleton and are registered by module in `src/server/tools/`. Agent mode (82): `src/server/official/forward.ts` registers every official tool in the Parity table plus `official_login`.
 
 | Module | Tools (all `robinhood_`-prefixed) |
 |---|---|
@@ -431,7 +431,7 @@ Standard mode (59): the tools access the client via the `getClient()` singleton 
 | `pnl.ts` (2) | `get_realized_pnl`, `get_pnl_trade_history` |
 | `review.ts` (3) | `review_equity_order`, `review_option_order`, `preview_crypto_order` |
 | `tax-lots.ts` (1) | `get_equity_tax_lots` |
-| `official/forward.ts` (81, agent mode) | every row of the Parity table, plus `official_login` |
+| `official/forward.ts` (82, agent mode) | every row of the Parity table, plus `official_login` |
 
 Tools that mirror an official Robinhood Trading MCP tool take its name and input schema; `docs/official-mcp-tools.json` holds the official tools and `docs/official-mcp-tools.md` the Parity table, and `__tests__/server/official-parity.test.ts` fails on any drift. Official enum-like parameters are plain strings in the listed schema and validated at call time (`stringEnum` in `_helpers.ts`), because the official schemas carry no `enum`. The [README](../README.md#tools) describes each tool; [`skills/robinhood-for-agents/reference.md`](../skills/robinhood-for-agents/reference.md) documents parameters and response shapes; [`skills/robinhood-for-agents/client-api.md`](../skills/robinhood-for-agents/client-api.md) maps each tool to the client methods it wraps.
 

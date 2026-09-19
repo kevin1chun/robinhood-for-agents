@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.0] - 2026-09-18
 
-The MCP tools take the official Robinhood Trading MCP's names and input schemas (parameter names, types, enums, required set) wherever a standard-REST endpoint is evidenced. `docs/official-mcp-tools.md#parity` maps all 80 official tools (34 same, 15 renamed, 3 new, 28 agent-only); `__tests__/server/official-parity.test.ts` checks every schema against the official one in both modes. The server runs in one of two modes: standard (59 tools, web API) or agent (81 tools, relayed to Robinhood's hosted MCP). The client library stays backwards-compatible.
+The MCP tools take the official Robinhood Trading MCP's names and input schemas (parameter names, types, enums, required set) wherever a standard-REST endpoint is evidenced. `docs/official-mcp-tools.md#parity` maps all 81 official tools (34 same, 15 renamed, 3 new, 29 agent-only); `__tests__/server/official-parity.test.ts` checks every schema against the official one in both modes. The server runs in one of two modes: standard (59 tools, web API) or agent (82 tools, relayed to Robinhood's hosted MCP). The client library stays backwards-compatible.
 
 ### Changed
 
@@ -20,7 +20,7 @@ The MCP tools take the official Robinhood Trading MCP's names and input schemas 
 ### Added
 
 - `robinhood_get_equity_technical_indicators` (18 indicators, computed by this server over the REST bars: `src/compute/indicators.ts`), `robinhood_get_currency_pairs`, and `robinhood_preview_crypto_order` (read-only estimate at the live quote).
-- **Agent mode** (`--mode agent` or `ROBINHOOD_MODE=agent`; default `standard`): the 80 official tools, each relayed to Robinhood's hosted MCP (`agent.robinhood.com`) under a separate credential from `robinhood_official_login`; orders reach the Agentic account only. The Parity status `agent-only` marks the 28 official tools with no web endpoint (advanced orders, option exercise, alerts, scanner writes and datapoints, onboarding and upgrade info, financials, SEC filings, politician trades, index historicals), which exist only in agent mode. `install --mode agent` registers it as a second entry, `robinhood-agent`; `onboard` asks for the mode.
+- **Agent mode** (`--mode agent` or `ROBINHOOD_MODE=agent`; default `standard`): the 81 official tools, each relayed to Robinhood's hosted MCP (`agent.robinhood.com`) under a separate credential from `robinhood_official_login`; orders reach the Agentic account only. The Parity status `agent-only` marks the 29 official tools with no web endpoint (advanced orders, option exercise, alerts, scanner writes and datapoints, onboarding and upgrade info, financials, analyst ratings, SEC filings, politician trades, index historicals), which exist only in agent mode. `install --mode agent` registers it as a second entry, `robinhood-agent`; `onboard` asks for the mode.
 - Agent-mode relay of the 52 tools that were REST-served is offline-tested only; live check pending.
 - Client: `getOptionChains({ ids?, underlyingSymbol? })`, `getOptionInstruments({ chainId, ... })`, `getOptionQuotes(ids)`, `getOptionHistoricalsById(id, opts)`, `getIndexValues(ids)`; a `refId` option on `orderStock` / `orderOption` / `orderCrypto`; `optionId` legs on `orderOption` and `reviewOptionOrder`.
 

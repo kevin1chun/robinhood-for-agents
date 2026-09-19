@@ -7,7 +7,7 @@
 
 Robinhood for AI agents — MCP server with two modes + TypeScript client library.
 
-- **MCP server in two modes** for any MCP-compatible AI agent: standard (59 tools on the web API) or agent (81 tools relayed to Robinhood's hosted MCP)
+- **MCP server in two modes** for any MCP-compatible AI agent: standard (59 tools on the web API) or agent (82 tools relayed to Robinhood's hosted MCP)
 - **Unified trading skill** for guided workflows (Claude Code, OpenClaw, [ClawHub](https://clawhub.ai/kevin1chun/robinhood-for-agents))
 - **TypeScript client library** (70+ async methods) for programmatic use
 - **Pluggable token storage** (standard mode) — OS keychain (default) or encrypted file (Docker/headless)
@@ -20,7 +20,7 @@ Compatible with **Claude Code**, **Codex**, **OpenClaw**, and any MCP-compatible
 The server runs in one mode per process, chosen at launch: `--mode agent|standard`, else `ROBINHOOD_MODE`, else `standard`.
 
 - **Standard** (59 tools): Robinhood's web API (`api.robinhood.com`) under the Chrome session from `robinhood_browser_login`. Serves every account.
-- **Agent** (81 tools): the 80 official Robinhood Trading MCP tools, each relayed unchanged to Robinhood's hosted MCP (`agent.robinhood.com`), plus `robinhood_official_login`, a one-time browser sign-in for Robinhood's official credential. Orders reach your Agentic account only; other accounts are read-only there. The credential is kept only in an AES-256-GCM file, never the OS keychain: `official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`, encrypted under `ROBINHOOD_TOKEN_KEY` (32 random bytes, base64: `openssl rand -base64 32`), which must be set in the agent-mode server's environment; without it every tool answers an error saying so.
+- **Agent** (82 tools): the 81 official Robinhood Trading MCP tools, each relayed unchanged to Robinhood's hosted MCP (`agent.robinhood.com`), plus `robinhood_official_login`, a one-time browser sign-in for Robinhood's official credential. Orders reach your Agentic account only; other accounts are read-only there. The credential is kept only in an AES-256-GCM file, never the OS keychain: `official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`, encrypted under `ROBINHOOD_TOKEN_KEY` (32 random bytes, base64: `openssl rand -base64 32`), which must be set in the agent-mode server's environment; without it every tool answers an error saying so.
 
 To run both, register two entries: `robinhood-for-agents` (standard) and `robinhood-agent` (`--mode agent`). Tool names are the same in both; your agent tells them apart by entry. Which tools each mode serves: [Tools](#tools).
 

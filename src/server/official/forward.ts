@@ -1,4 +1,4 @@
-/** The 80 official tools, relayed to Robinhood's hosted MCP (agent mode). */
+/** The 81 official tools, relayed to Robinhood's hosted MCP (agent mode). */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
