@@ -144,7 +144,7 @@ Keep only the entries for the modes you use. From a source checkout, use `"comma
 
 ## Tools
 
-Tool names and input schemas are the official ones, prefixed `robinhood_` ([`docs/official-mcp-tools.md`](docs/official-mcp-tools.md#parity)). The official hosted server's measured rate limit is in [`docs/official-mcp-tools.md`](docs/official-mcp-tools.md#measured-rate-limit).
+Tool names and input schemas are the official ones, prefixed `robinhood_` ([`docs/official-mcp-tools.md`](docs/official-mcp-tools.md#parity)); in agent mode each tool also carries Robinhood's own title, description, output schema and annotations unaltered ([`docs/official-mcp-tools.json`](docs/official-mcp-tools.json)). The official hosted server's measured rate limit is in [`docs/official-mcp-tools.md`](docs/official-mcp-tools.md#measured-rate-limit).
 
 Mode `both`: the web API in standard mode, relayed in agent mode.
 

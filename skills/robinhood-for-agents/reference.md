@@ -586,7 +586,7 @@ Results are complete (`next_cursor` always null). For exact reconciliation again
 
 ## Agent mode only
 
-These tools have no web endpoint, so they exist only in agent mode, where each call is relayed to `agent.robinhood.com/mcp/trading` and answered with the official server's result. Parameters are the official schemas (`docs/official-mcp-tools.md`); the tool descriptions carry the official usage rules. Until `robinhood_official_login` has run once, every agent-mode tool answers an error naming it. Orders reach the Agentic account only; other accounts are read-only there. A throttle answers `RATE_LIMITED`; wait about 5 s before retrying.
+These tools have no web endpoint, so they exist only in agent mode, where each call is relayed to `agent.robinhood.com/mcp/trading` and answered with the official server's result. Parameters, descriptions and annotations are Robinhood's own (`docs/official-mcp-tools.json`). Until `robinhood_official_login` has run once, every agent-mode tool answers an error naming it. Orders reach the Agentic account only; other accounts are read-only there. A throttle answers `RATE_LIMITED`; wait about 5 s before retrying.
 
 ### robinhood_official_login
 Opens the default browser to Robinhood's sign-in for the hosted MCP; the user approves there. Needed once. **Parameters:** none. **Response:** `{ "status": "signed_in" }`. Waits up to 5 minutes for the browser; see the timeout note under `robinhood_browser_login`.

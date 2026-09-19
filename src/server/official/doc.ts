@@ -1,43 +1,28 @@
-/** Official Robinhood Trading MCP tool schemas and parity status, read from docs/official-mcp-tools.md. */
+/**
+ * Official Robinhood Trading MCP tools, read from docs/official-mcp-tools.json (the server's own
+ * `tools/list` result), and the parity status from docs/official-mcp-tools.md.
+ */
 
 import { existsSync, readFileSync } from "node:fs";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
-export type OfficialTool = {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-};
+export type OfficialTool = Tool;
 
 export type ParityStatus = "same" | "renamed" | "new" | "agent-only";
 
-let cached: string | undefined;
-
 /** Source layout is src/server/official/; the published build adds dist/ in front. */
-function doc(): string {
-  if (cached === undefined) {
-    let url = new URL("../../../docs/official-mcp-tools.md", import.meta.url);
-    if (!existsSync(url)) url = new URL("../../../../docs/official-mcp-tools.md", import.meta.url);
-    cached = readFileSync(url, "utf8");
-  }
-  return cached;
+function read(file: string): string {
+  let url = new URL(`../../../docs/${file}`, import.meta.url);
+  if (!existsSync(url)) url = new URL(`../../../../docs/${file}`, import.meta.url);
+  return readFileSync(url, "utf8");
 }
 
 let tools: Map<string, OfficialTool> | undefined;
 
 export function officialTools(): Map<string, OfficialTool> {
   if (!tools) {
-    tools = new Map();
-    for (const section of doc().split(/^## /m).slice(1)) {
-      const name = section.slice(0, section.indexOf("\n")).trim();
-      const fence = section.indexOf("```json\n");
-      if (fence < 0) continue;
-      const json = section.slice(fence + 8, section.indexOf("```", fence + 8));
-      tools.set(name, {
-        name,
-        description: section.slice(name.length, fence).trim(),
-        inputSchema: JSON.parse(json) as Record<string, unknown>,
-      });
-    }
+    const list = JSON.parse(read("official-mcp-tools.json")) as OfficialTool[];
+    tools = new Map(list.map((t) => [t.name, t]));
   }
   return tools;
 }
@@ -47,7 +32,9 @@ let status: Map<string, ParityStatus> | undefined;
 export function parityStatus(): Map<string, ParityStatus> {
   if (!status) {
     status = new Map();
-    for (const m of doc().matchAll(/^\| `([a-z_]+)` \| [^|]+ \| ([\w-]+) \|/gm)) {
+    for (const m of read("official-mcp-tools.md").matchAll(
+      /^\| `([a-z_]+)` \| [^|]+ \| ([\w-]+) \|/gm,
+    )) {
       status.set(m[1] as string, m[2] as ParityStatus);
     }
   }

@@ -4,7 +4,7 @@ AI-native Robinhood trading interface — MCP server + TypeScript client library
 
 ## Project Structure
 - `src/client/` — Robinhood API client (82 async methods)
-- `src/server/` — MCP server, one mode per process: standard (59 tools, `src/server/tools/`) or agent (81 tools, `src/server/official/`); official-tool parity table: `docs/official-mcp-tools.md`
+- `src/server/` — MCP server, one mode per process: standard (59 tools, `src/server/tools/`) or agent (81 tools, `src/server/official/`); official tools: `docs/official-mcp-tools.json` (the hosted server's tools/list, `bun run refresh-official-tools`); parity table: `docs/official-mcp-tools.md`
 - `bin/` — CLI entry point (`robinhood-for-agents`)
 - `skills/` — Claude Code skills for interactive use
 
@@ -25,7 +25,7 @@ bun bin/robinhood-for-agents.ts --mode agent   # agent mode (or ROBINHOOD_MODE=a
 ```
 **Standard mode** registers the 59 tools of `src/server/tools/*.ts`, which call `api.robinhood.com` through `src/client/` under the Chrome browser session; every account.
 
-**Agent mode** registers the 80 official tools plus `robinhood_official_login` (`src/server/official/forward.ts`, schemas read from `docs/official-mcp-tools.md` at startup), each relayed unchanged to `agent.robinhood.com/mcp/trading`; no web-API code path. The modes never mix in one process; running both is two client entries (`robinhood-for-agents`, `robinhood-agent`).
+**Agent mode** registers the 80 official tools plus `robinhood_official_login` (`src/server/official/forward.ts`, title, description, schemas and annotations read verbatim from `docs/official-mcp-tools.json` at startup), each relayed unchanged to `agent.robinhood.com/mcp/trading`; no web-API code path. The modes never mix in one process; running both is two client entries (`robinhood-for-agents`, `robinhood-agent`).
 
 ## Development
 ```bash

@@ -65,7 +65,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "bun test __tests__/integration/",
-    "pnl:harness": "bun scripts/pnl-oracle-harness.ts"
+    "pnl:harness": "bun scripts/pnl-oracle-harness.ts",
+    "refresh-official-tools": "bun scripts/refresh-official-tools.ts"
   },
   "overrides": {
     "zod": "^4.3.6"

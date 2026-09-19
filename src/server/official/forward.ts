@@ -4,11 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
-import {
-  type CallToolResult,
-  McpError,
-  type ToolAnnotations,
-} from "@modelcontextprotocol/sdk/types.js";
+import { type CallToolResult, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { redactTokens } from "../../redact.js";
 import { VERSION } from "../../version.js";
@@ -24,55 +20,6 @@ import { officialTools } from "./doc.js";
 export const OFFICIAL_MCP_URL = "https://agent.robinhood.com/mcp/trading";
 
 export type Upstream = { connect(): Promise<Client> };
-
-const RELAY_NOTE =
-  "Relayed to Robinhood's hosted MCP (agent.robinhood.com) under the credential from robinhood_official_login. Orders through it reach the Agentic account only.";
-
-const READ_ONLY: ToolAnnotations = { readOnlyHint: true };
-const ONCE: ToolAnnotations = { readOnlyHint: false, destructiveHint: true, idempotentHint: false };
-const REMOVE: ToolAnnotations = {
-  readOnlyHint: false,
-  destructiveHint: true,
-  idempotentHint: true,
-};
-const CREATE: ToolAnnotations = {
-  readOnlyHint: false,
-  destructiveHint: false,
-  idempotentHint: false,
-};
-const ENSURE: ToolAnnotations = {
-  readOnlyHint: false,
-  destructiveHint: false,
-  idempotentHint: true,
-};
-const ANNOTATIONS: Record<string, ToolAnnotations> = {
-  place_advanced_order: ONCE,
-  place_crypto_order: ONCE,
-  place_equity_order: ONCE,
-  place_option_order: ONCE,
-  exercise_option: ONCE,
-  cancel_advanced_order: REMOVE,
-  cancel_crypto_order: REMOVE,
-  cancel_equity_order: REMOVE,
-  cancel_option_exercise: REMOVE,
-  cancel_option_order: REMOVE,
-  delete_alert: REMOVE,
-  remove_from_watchlist: REMOVE,
-  remove_option_from_watchlist: REMOVE,
-  unfollow_watchlist: REMOVE,
-  update_alert: REMOVE,
-  update_scan_config: REMOVE,
-  update_scan_filters: REMOVE,
-  create_alert: CREATE,
-  create_scan: CREATE,
-  // A second create makes a second list, so a retry is not safe (the REST tool says the same).
-  create_watchlist: CREATE,
-  add_option_to_watchlist: ENSURE,
-  add_to_watchlist: ENSURE,
-  follow_watchlist: ENSURE,
-  mark_alerts_read: ENSURE,
-  update_watchlist: ENSURE,
-};
 
 /** One connected client per process, built on first use and dropped when it closes. */
 export function liveUpstream(store: OfficialCredentialStore): Upstream {
@@ -125,13 +72,6 @@ function isTransportError(e: unknown): boolean {
   );
 }
 
-function title(name: string): string {
-  return name
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
 export function registerOfficialTools(
   server: McpServer,
   upstream: Upstream,
@@ -141,15 +81,18 @@ export function registerOfficialTools(
     server.registerTool(
       `robinhood_${name}`,
       {
-        title: title(name),
-        description: `${tool.description}\n\n${RELAY_NOTE}`,
+        ...(tool.title ? { title: tool.title } : {}),
+        description: tool.description,
         inputSchema: z.fromJSONSchema(tool.inputSchema as z.core.JSONSchema.JSONSchema),
-        annotations: ANNOTATIONS[name] ?? READ_ONLY,
+        ...(tool.outputSchema
+          ? { outputSchema: z.fromJSONSchema(tool.outputSchema as z.core.JSONSchema.JSONSchema) }
+          : {}),
+        annotations: tool.annotations,
       },
       async (args: unknown) => {
-        const a = ANNOTATIONS[name] ?? READ_ONLY;
-        // A non-idempotent write is never retried: the failed attempt may have landed.
-        const retryable = a.readOnlyHint === true || a.idempotentHint === true;
+        const a = tool.annotations;
+        // Only a tool Robinhood marks read-only or idempotent is retried: a failed write may have landed.
+        const retryable = a?.readOnlyHint === true || a?.idempotentHint === true;
         try {
           await freshAccessToken(store);
           let client: Client | undefined;

@@ -12,6 +12,22 @@ import { officialTools } from "../../src/server/official/doc.js";
 import type { Upstream } from "../../src/server/official/forward.js";
 import { createServer } from "../../src/server/server.js";
 
+// Retry reads the official annotations; pin them here so a refreshed snapshot cannot move the tests.
+vi.mock("../../src/server/official/doc.js", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../src/server/official/doc.js")>();
+  const fixture: Record<string, object> = {
+    get_financials: { readOnlyHint: true },
+    place_advanced_order: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+  };
+  const tools = new Map(
+    [...real.officialTools()].map(([name, { annotations: _, ...t }]) => [
+      name,
+      fixture[name] ? { ...t, annotations: fixture[name] } : t,
+    ]),
+  );
+  return { ...real, officialTools: () => tools };
+});
+
 type Result = {
   content: Array<{ type: string; text: string }>;
   structuredContent?: Record<string, unknown>;
@@ -159,6 +175,21 @@ describe("agent mode relays official tools", () => {
     expect(callTool).toHaveBeenCalledTimes(2);
     expect(read.isError).toBe(true);
     expect(read.content[0]?.text).toContain("fetch failed");
+  });
+
+  it("never retries a tool with no annotations", async () => {
+    const callTool = vi.fn(async () => {
+      throw new Error("fetch failed");
+    });
+    const broken = { callTool, close: vi.fn(async () => {}) } as unknown as Client;
+    const client = await fork({ connect: async () => broken }, SIGNED_IN);
+    const r = (await client.callTool({
+      name: "robinhood_get_equity_quotes",
+      arguments: { symbols: ["AAPL"] },
+    })) as Result;
+    expect(callTool).toHaveBeenCalledTimes(1);
+    expect(r.isError).toBe(true);
+    expect(r.content[0]?.text).toContain("may have reached Robinhood");
   });
 
   it("relays a tool the web API also serves in standard mode", async () => {

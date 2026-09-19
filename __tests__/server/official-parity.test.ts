@@ -1,13 +1,14 @@
 /**
- * Input-schema parity with the official Robinhood Trading MCP. Parses the
- * official schemas and the Parity table in docs/official-mcp-tools.md and
- * compares every tool against the listed schema in each mode (agent: all 80;
- * standard: all but the agent-only rows):
- * property names, required set, enum values, and primitive type, recursively.
- * Nullability is ignored (the official schemas mark optional arrays nullable).
+ * Parity with the official Robinhood Trading MCP. Reads the official tools from
+ * docs/official-mcp-tools.json and the Parity table from docs/official-mcp-tools.md.
+ * Agent mode (all 80) lists each tool's title, description and annotations verbatim and its
+ * input and output schemas; standard mode (all but the agent-only rows) its input schema.
+ * A schema is compared by property names, required set, enum values, and primitive type,
+ * recursively. Nullability is ignored (the official schemas mark optional arrays nullable).
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import type {
   OfficialCredential,
@@ -25,9 +26,7 @@ type Schema = {
   enum?: unknown[];
 };
 
-const official = new Map(
-  [...officialTools()].map(([name, t]) => [name, t.inputSchema as Schema] as const),
-);
+const official = officialTools();
 const status = parityStatus();
 
 /** Drop null from a type union or an anyOf wrapper. */
@@ -69,12 +68,12 @@ function drift(o: Schema, c: Schema, path: string): string[] {
   return out;
 }
 
-async function listed(server: ReturnType<typeof createServer>): Promise<Map<string, Schema>> {
+async function listed(server: ReturnType<typeof createServer>): Promise<Map<string, Tool>> {
   const client = new Client({ name: "parity", version: "0.0.0" });
   const [ct, st] = InMemoryTransport.createLinkedPair();
   await Promise.all([client.connect(ct), server.connect(st)]);
   const { tools } = await client.listTools();
-  return new Map(tools.map((t) => [t.name, t.inputSchema as Schema]));
+  return new Map(tools.map((t) => [t.name, t]));
 }
 
 function memoryStore(cred: OfficialCredential | null): OfficialCredentialStore {
@@ -90,8 +89,8 @@ function memoryStore(cred: OfficialCredential | null): OfficialCredentialStore {
   };
 }
 
-let standard: Map<string, Schema>;
-let agent: Map<string, Schema>;
+let standard: Map<string, Tool>;
+let agent: Map<string, Tool>;
 
 beforeAll(async () => {
   standard = await listed(createServer());
@@ -126,18 +125,26 @@ describe("official MCP parity", () => {
     );
   });
 
-  it.each([
-    ...status.keys(),
-  ])("agent mode: robinhood_%s takes the official input schema", (name) => {
-    expect(
-      drift(official.get(name) as Schema, agent.get(`robinhood_${name}`) as Schema, name),
-    ).toEqual([]);
+  it.each([...status.keys()])("agent mode: robinhood_%s lists the official definition", (name) => {
+    const o = official.get(name) as Tool;
+    const t = agent.get(`robinhood_${name}`) as Tool;
+    expect(t.title).toBe(o.title);
+    expect(t.description).toBe(o.description);
+    expect(t.annotations).toEqual(o.annotations);
+    expect(drift(o.inputSchema as Schema, t.inputSchema as Schema, name)).toEqual([]);
+    if (o.outputSchema) {
+      expect(drift(o.outputSchema as Schema, t.outputSchema as Schema, `${name}->`)).toEqual([]);
+    } else {
+      expect(t.outputSchema).toBeUndefined();
+    }
   });
 
   it.each(webServed)("standard mode: robinhood_%s takes the official input schema", (name) => {
     const tool = standard.get(`robinhood_${name}`);
     expect(tool, `robinhood_${name} is not registered`).toBeDefined();
-    expect(drift(official.get(name) as Schema, tool as Schema, name)).toEqual([]);
+    expect(
+      drift(official.get(name)?.inputSchema as Schema, tool?.inputSchema as Schema, name),
+    ).toEqual([]);
   });
 
   it("standard mode has no agent-only tool and no official login", () => {
