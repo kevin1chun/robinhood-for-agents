@@ -3,11 +3,14 @@ Official Robinhood Trading MCP (https://agent.robinhood.com/mcp/trading): its me
 ## Measured rate limit
 
 This is the limit of the official hosted server (agent.robinhood.com), not of the REST API this package calls. Robinhood publishes no limit.
-It was measured on 2026-09-18 by Taji's operator-run probe: one session, sequential calls with one in flight, `get_equity_historicals` on AAPL daily bars.
-- **Sustained:** 4 calls/s (240/min) ran with no throttling.
-- **First `RATE_LIMITED`:** after 123 calls in 26.6 s at the 8/s setting (about 4.6/s achieved). A retry 5 s later succeeded.
-- **Latency:** p50 about 150 ms, p95 about 300–350 ms.
-- **Not measured:** the throttle window, the exact ceiling, and `get_equity_quotes` and `get_equity_price_book`.
+It was measured by an operator-run probe: one session, sequential calls with one in flight. `get_equity_historicals` on AAPL daily bars on 2026-09-18; `get_equity_quotes` and `get_equity_price_book` on 2026-09-19, same probe and method.
+- **Sustained:** 4 calls/s (240/min) ran with no throttling on all three tools.
+- **First `RATE_LIMITED`:** only in the 8/s phase — 92 to 124 calls into that phase, 531 to 561 calls into the run. A retry 5 s later always succeeded.
+- **Latency:** p50 about 150 ms (267 ms in two phases of the quotes run), p95 about 300–370 ms.
+- **One limit, probably account-wide:** three tools hit the same ceiling. That is a reading of the three runs, not a measured fact.
+- **Not measured:** the throttle window and the exact ceiling.
+
+`get_equity_historicals`:
 
 ```text
 rate 0.5/s  sent 31  ok 31  throttled 0  p50 148  p95 320
@@ -16,6 +19,30 @@ rate 2/s  sent 121  ok 121  throttled 0  p50 158  p95 298
 rate 4/s  sent 224  ok 224  throttled 0  p50 160  p95 352
 RATE_LIMITED at rate 8/s, call 561 (phase call 124), 26.6 s into the phase
 rate 8/s  sent 124  ok 123  throttled 1  p50 165  p95 347
+recovered after 5 s
+```
+
+`get_equity_quotes`:
+
+```text
+rate 0.5/s  sent 31  ok 31  throttled 0  p50 154  p95 345
+rate 1/s  sent 61  ok 61  throttled 0  p50 151  p95 338
+rate 2/s  sent 121  ok 121  throttled 0  p50 267  p95 366
+rate 4/s  sent 215  ok 215  throttled 0  p50 269  p95 361
+RATE_LIMITED at rate 8/s, call 551 (phase call 123), 22.8 s into the phase
+rate 8/s  sent 123  ok 122  throttled 1  p50 148  p95 335
+recovered after 5 s
+```
+
+`get_equity_price_book`:
+
+```text
+rate 0.5/s  sent 31  ok 31  throttled 0  p50 154  p95 325
+rate 1/s  sent 61  ok 61  throttled 0  p50 158  p95 347
+rate 2/s  sent 121  ok 121  throttled 0  p50 158  p95 316
+rate 4/s  sent 226  ok 226  throttled 0  p50 160  p95 349
+RATE_LIMITED at rate 8/s, call 531 (phase call 92), 16.0 s into the phase
+rate 8/s  sent 92  ok 91  throttled 1  p50 154  p95 330
 recovered after 5 s
 ```
 
