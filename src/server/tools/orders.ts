@@ -1,8 +1,23 @@
-/** Order placement, history, and management tools for Robinhood. */
+/** Order placement, history, and cancel tools for Robinhood. */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getAuthenticatedRh, structured, textError } from "./_helpers.js";
+import {
+  CRYPTO_ORDER_PARAMS,
+  CURSOR_PARAM,
+  EQUITY_ORDER_PARAMS,
+  findPair,
+  getAuthenticatedRh,
+  OPTION_ORDER_PARAMS,
+  parseCryptoOrder,
+  parseEquityOrder,
+  parseOptionOrder,
+  parseUtc,
+  RHS_ACCOUNT_PARAM,
+  stringEnum,
+  structured,
+  textError,
+} from "./_helpers.js";
 
 const READ_ONLY = { readOnlyHint: true } as const;
 const PLACE_ORDER_ANNOTATIONS = {
@@ -16,88 +31,54 @@ const CANCEL_ORDER_ANNOTATIONS = {
   idempotentHint: true,
 } as const;
 
+const REF_ID = z
+  .string()
+  .optional()
+  .describe("Idempotency key (UUID); re-send the same value on retry. Omit for a fresh one.");
+
+const ORDER_PAGE = {
+  orders: z.array(z.unknown()),
+  next_cursor: z.null(),
+};
+
+/** True when a created/updated timestamp is at or after `gte` (absent filter → true). */
+function since(ts: string | null | undefined, gte: string | undefined): boolean {
+  if (gte === undefined) return true;
+  return ts != null && parseUtc(ts) >= parseUtc(gte);
+}
+
+/** A stock order's `account` is the account URL `…/accounts/{number}/`. */
+function ownedBy(accountUrl: string | undefined, accountNumber: string): boolean {
+  return accountUrl === undefined || accountUrl.endsWith(`/accounts/${accountNumber}/`);
+}
+
+const CRYPTO_OPEN = new Set(["unconfirmed", "queued", "confirmed", "partially_filled"]);
+
 export function registerOrderTools(server: McpServer): void {
-  // -------------------------------------------------------------------------
-  // Place stock order
-  // -------------------------------------------------------------------------
   server.registerTool(
-    "robinhood_place_stock_order",
+    "robinhood_place_equity_order",
     {
-      title: "Place Stock Order",
+      title: "Place Equity Order",
       description:
-        "Place a stock order. Requires explicit parameters — no dangerous defaults. Always confirm with the user before calling. Short selling: use side 'sell_short' to open a short (NOT 'sell', which only closes an existing long and is rejected with 'Not enough shares to sell.'). Close a short with an ordinary 'buy'.",
-      inputSchema: {
-        symbol: z.string().describe("Stock ticker symbol (e.g. AAPL)."),
-        side: z
-          .enum(["buy", "sell", "sell_short"])
-          .describe(
-            "Order side. 'sell' closes a long position; 'sell_short' opens a short position (requires a margin-enabled account and whole shares). To cover a short, use 'buy'.",
-          ),
-        quantity: z
-          .number()
-          .positive()
-          .describe("Number of shares. Fractional allowed except for 'sell_short'."),
-        limit_price: z
-          .number()
-          .positive()
-          .optional()
-          .describe("Limit price. Required for limit and stop-limit orders."),
-        stop_price: z
-          .number()
-          .positive()
-          .optional()
-          .describe("Stop price. Required for stop and stop-limit orders."),
-        trail_amount: z
-          .number()
-          .positive()
-          .optional()
-          .describe("Trailing stop amount. Sets order type to trailing stop."),
-        trail_type: z
-          .enum(["percentage", "amount"])
-          .default("percentage")
-          .describe("Trailing stop type."),
-        time_in_force: z
-          .enum(["gtc", "gfd"])
-          .describe(
-            "Time in force: 'gfd' (good for day, safer) or 'gtc' (good till cancelled). Required.",
-          ),
-        market_hours: z
-          .enum(["regular_hours", "extended_hours", "all_day_hours"])
-          .describe(
-            "Trading session, REQUIRED — no default, because an order tagged to the wrong session silently queues instead of executing. 'regular_hours' (9:30-16:00 ET), 'extended_hours' (pre/post-market), or 'all_day_hours' (24 Hour Market, overnight). Only limit orders execute outside regular hours, and a short sell placed outside regular hours is rejected unless the session is named.",
-          ),
-        account_number: z
-          .string()
-          .describe("Robinhood account number. Get from robinhood_get_accounts."),
-      },
+        "Place a stock order. Always confirm with the user before calling (review it first with robinhood_review_equity_order). Short selling: side 'sell_short' opens a short (NOT 'sell', which only closes a long and is rejected with 'Not enough shares to sell.'); close a short with 'buy'. Only limit orders execute outside regular_hours.",
+      inputSchema: { ...EQUITY_ORDER_PARAMS, ref_id: REF_ID },
       outputSchema: {
         status: z.string(),
         order: z.unknown(),
       },
       annotations: PLACE_ORDER_ANNOTATIONS,
     },
-    async ({
-      symbol,
-      side,
-      quantity,
-      limit_price,
-      stop_price,
-      trail_amount,
-      trail_type,
-      time_in_force,
-      market_hours,
-      account_number,
-    }) => {
+    async (args) => {
       try {
+        const o = parseEquityOrder(args);
         const rh = await getAuthenticatedRh();
-        const order = await rh.orderStock(symbol, side, quantity, {
-          limitPrice: limit_price,
-          stopPrice: stop_price,
-          trailAmount: trail_amount,
-          trailType: trail_type,
-          timeInForce: time_in_force,
-          marketHours: market_hours,
-          accountNumber: account_number,
+        const order = await rh.orderStock(args.symbol, args.side, o.quantity, {
+          limitPrice: o.limitPrice,
+          stopPrice: o.stopPrice,
+          timeInForce: o.timeInForce,
+          marketHours: o.marketHours,
+          accountNumber: args.account_number,
+          refId: args.ref_id,
         });
         return structured({ status: "submitted", order });
       } catch (e) {
@@ -106,131 +87,28 @@ export function registerOrderTools(server: McpServer): void {
     },
   );
 
-  // -------------------------------------------------------------------------
-  // Place option order (single-leg or multi-leg spreads)
-  // -------------------------------------------------------------------------
   server.registerTool(
     "robinhood_place_option_order",
     {
       title: "Place Option Order",
       description:
-        "Place a single-leg or multi-leg option order (verticals, iron condors, straddles, etc.). Always confirm with the user before calling.",
-      inputSchema: {
-        symbol: z.string().describe("Underlying stock ticker symbol."),
-        legs: z
-          .array(
-            z.object({
-              expiration_date: z.string().describe("Expiration date (YYYY-MM-DD)."),
-              strike: z.number().describe("Strike price."),
-              option_type: z.enum(["call", "put"]).describe("Option type."),
-              side: z.enum(["buy", "sell"]).describe("Buy or sell this leg."),
-              position_effect: z.enum(["open", "close"]).describe("Opening or closing."),
-              ratio_quantity: z.number().default(1).describe("Ratio quantity for this leg."),
-            }),
-          )
-          .describe("Option legs. Single-leg for simple orders, multiple legs for spreads."),
-        price: z
-          .number()
-          .positive()
-          .describe("Limit price per contract (single-leg) or net price (spreads)."),
-        quantity: z.number().positive().describe("Number of contracts."),
-        direction: z
-          .enum(["debit", "credit"])
-          .describe("Debit for buys/debit spreads, credit for sells/credit spreads."),
-        stop_price: z
-          .number()
-          .optional()
-          .describe("Stop price. When set, order triggers as stop-limit."),
-        time_in_force: z.enum(["gtc", "gfd", "ioc", "opg"]).describe("Time in force. Required."),
-        account_number: z
-          .string()
-          .describe("Robinhood account number. Get from robinhood_get_accounts."),
-      },
+        "Place a single-leg or multi-leg (up to 4 legs: verticals, condors, straddles, …) limit or stop-limit option order, legs named by option_id. Always confirm with the user before calling (review it first with robinhood_review_option_order).",
+      inputSchema: { ...OPTION_ORDER_PARAMS, ref_id: REF_ID },
       outputSchema: {
         status: z.string(),
         order: z.unknown(),
       },
       annotations: PLACE_ORDER_ANNOTATIONS,
     },
-    async ({
-      symbol,
-      legs,
-      price,
-      quantity,
-      direction,
-      stop_price,
-      time_in_force,
-      account_number,
-    }) => {
+    async (args) => {
       try {
+        const o = parseOptionOrder(args);
         const rh = await getAuthenticatedRh();
-        const order = await rh.orderOption(
-          symbol,
-          legs.map((l) => ({
-            expirationDate: l.expiration_date,
-            strike: l.strike,
-            optionType: l.option_type,
-            side: l.side,
-            positionEffect: l.position_effect,
-            ratioQuantity: l.ratio_quantity,
-          })),
-          price,
-          quantity,
-          direction,
-          {
-            stopPrice: stop_price,
-            timeInForce: time_in_force,
-            accountNumber: account_number,
-          },
-        );
-        return structured({ status: "submitted", order });
-      } catch (e) {
-        return textError(String(e));
-      }
-    },
-  );
-
-  // -------------------------------------------------------------------------
-  // Place crypto order
-  // -------------------------------------------------------------------------
-  server.registerTool(
-    "robinhood_place_crypto_order",
-    {
-      title: "Place Crypto Order",
-      description: "Place a crypto order. Always confirm with the user before calling.",
-      inputSchema: {
-        symbol: z.string().describe('Crypto symbol (e.g. "BTC", "ETH").'),
-        side: z.enum(["buy", "sell"]).describe("Order side."),
-        amount_or_quantity: z
-          .number()
-          .positive()
-          .describe("Quantity or dollar amount depending on amount_in."),
-        amount_in: z
-          .enum(["quantity", "price"])
-          .default("quantity")
-          .describe("Whether amount_or_quantity is a coin quantity or dollar amount."),
-        order_type: z
-          .enum(["market", "limit"])
-          .describe("Order type: 'market' or 'limit'. Required."),
-        limit_price: z
-          .number()
-          .positive()
-          .optional()
-          .describe("Limit price. Required for limit orders."),
-      },
-      outputSchema: {
-        status: z.string(),
-        order: z.unknown(),
-      },
-      annotations: PLACE_ORDER_ANNOTATIONS,
-    },
-    async ({ symbol, side, amount_or_quantity, amount_in, order_type, limit_price }) => {
-      try {
-        const rh = await getAuthenticatedRh();
-        const order = await rh.orderCrypto(symbol, side, amount_or_quantity, {
-          amountIn: amount_in,
-          orderType: order_type,
-          limitPrice: limit_price,
+        const order = await rh.orderOption("", o.legs, o.price, o.quantity, o.direction, {
+          stopPrice: o.stopPrice,
+          timeInForce: o.timeInForce,
+          accountNumber: args.account_number,
+          refId: args.ref_id,
         });
         return structured({ status: "submitted", order });
       } catch (e) {
@@ -239,99 +117,170 @@ export function registerOrderTools(server: McpServer): void {
     },
   );
 
-  // -------------------------------------------------------------------------
-  // Get orders (history)
-  // -------------------------------------------------------------------------
   server.registerTool(
-    "robinhood_get_orders",
+    "robinhood_place_crypto_order",
     {
-      title: "Get Orders",
+      title: "Place Crypto Order",
       description:
-        "Get order history for stocks, options, or crypto in one generic tool — supports account_number scoping, open/all status filtering, and a result limit (default 50, 0 for unlimited). Prefer robinhood_get_option_orders when you want the complete, unlimited, official-parity option order history without account scoping.",
-      inputSchema: {
-        order_type: z
-          .enum(["stock", "option", "crypto"])
-          .default("stock")
-          .describe("Type of orders to retrieve."),
-        status: z.enum(["open", "all"]).default("all").describe("Filter by order status."),
-        account_number: z.string().optional().describe("Account number for multi-account."),
-        limit: z.number().default(50).describe("Maximum orders to return. 0 for unlimited."),
-      },
+        "Place a market or limit crypto order by quantity or dollar_amount. Always confirm with the user before calling (preview it first with robinhood_preview_crypto_order).",
+      inputSchema: { ...CRYPTO_ORDER_PARAMS, ref_id: REF_ID },
       outputSchema: {
-        orders: z.array(z.unknown()),
-        order_type: z.string(),
         status: z.string(),
+        order: z.unknown(),
       },
-      annotations: READ_ONLY,
+      annotations: PLACE_ORDER_ANNOTATIONS,
     },
-    async ({ order_type, status, account_number, limit }) => {
+    async (args) => {
       try {
+        const o = parseCryptoOrder(args);
         const rh = await getAuthenticatedRh();
-        const accountOpts = account_number ? { accountNumber: account_number } : undefined;
-
-        let orders: unknown[];
-
-        if (order_type === "stock") {
-          orders =
-            status === "open"
-              ? await rh.getOpenStockOrders(accountOpts)
-              : await rh.getAllStockOrders(accountOpts);
-        } else if (order_type === "option") {
-          orders =
-            status === "open"
-              ? await rh.getOpenOptionOrders(accountOpts)
-              : await rh.getAllOptionOrders(accountOpts);
-        } else {
-          orders =
-            status === "open"
-              ? await rh.getOpenCryptoOrders(accountOpts)
-              : await rh.getAllCryptoOrders(accountOpts);
-        }
-
-        if (limit > 0) {
-          orders = orders.slice(0, limit);
-        }
-
-        return structured({ orders, order_type, status });
+        const order = await rh.orderCrypto(args.symbol, args.side, o.amount, {
+          amountIn: o.amountIn,
+          orderType: o.orderType,
+          limitPrice: o.limitPrice,
+          refId: args.ref_id,
+        });
+        return structured({ status: "submitted", order });
       } catch (e) {
         return textError(String(e));
       }
     },
   );
 
-  // -------------------------------------------------------------------------
-  // Cancel order
-  // -------------------------------------------------------------------------
   server.registerTool(
-    "robinhood_cancel_order",
+    "robinhood_get_equity_orders",
     {
-      title: "Cancel Order",
-      description: "Cancel a pending order by its ID.",
+      title: "Get Equity Orders",
+      description:
+        "Get stock order history for one account, filtered by order id, symbol, state, source, and creation time. Results are complete (next_cursor is always null).",
       inputSchema: {
-        order_id: z.string().describe("The order UUID to cancel."),
-        order_type: z
-          .enum(["stock", "option", "crypto"])
-          .default("stock")
-          .describe("Type of order."),
+        account_number: z.string().describe("Brokerage account number."),
+        order_id: z.string().optional().describe("One order UUID."),
+        symbol: z.string().optional().describe("One stock symbol."),
+        state: z
+          .string()
+          .optional()
+          .describe("One state, e.g. queued, confirmed, filled, cancelled."),
+        placed_agent: z
+          .string()
+          .optional()
+          .describe("One source, e.g. 'user', 'agentic', 'recurring'."),
+        created_at_gte: z
+          .string()
+          .optional()
+          .describe("Created on or after (ISO 8601 or YYYY-MM-DD; naive = UTC)."),
+        cursor: CURSOR_PARAM,
       },
-      outputSchema: {
-        status: z.string(),
-        order_id: z.string(),
-      },
-      annotations: CANCEL_ORDER_ANNOTATIONS,
+      outputSchema: ORDER_PAGE,
+      annotations: READ_ONLY,
     },
-    async ({ order_id, order_type }) => {
+    async (args) => {
       try {
         const rh = await getAuthenticatedRh();
+        const all = args.order_id
+          ? [await rh.getStockOrder(args.order_id)]
+          : await rh.getAllStockOrders({ accountNumber: args.account_number });
+        const instrumentId = args.symbol
+          ? (await rh.resolveInstrumentBySymbol(args.symbol)).id
+          : undefined;
+        const orders = all.filter(
+          (o) =>
+            ownedBy(o.account, args.account_number) &&
+            (!instrumentId || o.instrument_id === instrumentId) &&
+            (!args.state || o.state === args.state) &&
+            (!args.placed_agent || o.placed_agent === args.placed_agent) &&
+            since(o.created_at, args.created_at_gte),
+        );
+        return structured({ orders, next_cursor: null });
+      } catch (e) {
+        return textError(String(e));
+      }
+    },
+  );
 
-        if (order_type === "stock") {
-          await rh.cancelStockOrder(order_id);
-        } else if (order_type === "option") {
-          await rh.cancelOptionOrder(order_id);
-        } else {
-          await rh.cancelCryptoOrder(order_id);
+  server.registerTool(
+    "robinhood_get_crypto_orders",
+    {
+      title: "Get Crypto Orders",
+      description:
+        "Get crypto order history, filtered by order id, symbol, side, state or state_group (open/closed), and created/updated time. Results are complete (next_cursor is always null).",
+      inputSchema: {
+        rhs_account_number: RHS_ACCOUNT_PARAM,
+        order_id: z.string().optional().describe("One order UUID."),
+        symbol: z.string().optional().describe("Crypto symbol ('BTC' or 'BTC-USD')."),
+        side: stringEnum(["buy", "sell"]).optional().describe("'buy' or 'sell'."),
+        state: z
+          .string()
+          .optional()
+          .describe("One state, e.g. queued, confirmed, filled, canceled."),
+        state_group: stringEnum(["open", "closed"])
+          .optional()
+          .describe("'open' or 'closed'. Mutually exclusive with state."),
+        created_at_gte: z
+          .string()
+          .optional()
+          .describe("Created on or after (ISO 8601; naive = UTC)."),
+        updated_at_gte: z
+          .string()
+          .optional()
+          .describe("Updated on or after (ISO 8601; naive = UTC)."),
+        cursor: CURSOR_PARAM,
+      },
+      outputSchema: ORDER_PAGE,
+      annotations: READ_ONLY,
+    },
+    async (args) => {
+      try {
+        if (args.state && args.state_group) {
+          return textError("state and state_group are mutually exclusive.");
         }
+        const rh = await getAuthenticatedRh();
+        let pairId: string | undefined;
+        if (args.symbol) {
+          const pair = findPair(await rh.getCurrencyPairs(), args.symbol);
+          if (!pair) return textError(`Unknown crypto pair: ${args.symbol}`);
+          pairId = pair.id;
+        }
+        const all = args.order_id
+          ? [await rh.getCryptoOrder(args.order_id)]
+          : await rh.getAllCryptoOrders();
+        const orders = all.filter(
+          (o) =>
+            (!pairId || o.currency_pair_id === pairId) &&
+            (!args.side || o.side === args.side) &&
+            (!args.state || o.state === args.state) &&
+            (!args.state_group || CRYPTO_OPEN.has(o.state) === (args.state_group === "open")) &&
+            since(o.created_at, args.created_at_gte) &&
+            since(o.updated_at, args.updated_at_gte),
+        );
+        return structured({ orders, next_cursor: null });
+      } catch (e) {
+        return textError(String(e));
+      }
+    },
+  );
 
+  server.registerTool(
+    "robinhood_cancel_equity_order",
+    {
+      title: "Cancel Equity Order",
+      description:
+        "Cancel one pending stock order. The order must belong to account_number. Always confirm with the user before calling.",
+      inputSchema: {
+        account_number: z.string().describe("Brokerage account number the order belongs to."),
+        order_id: z.string().describe("Order UUID (from robinhood_get_equity_orders)."),
+      },
+      outputSchema: { status: z.string(), order_id: z.string() },
+      annotations: CANCEL_ORDER_ANNOTATIONS,
+    },
+    async ({ account_number, order_id }) => {
+      try {
+        const rh = await getAuthenticatedRh();
+        const order = await rh.getStockOrder(order_id);
+        if (!ownedBy(order.account, account_number)) {
+          return textError(`Order ${order_id} does not belong to account ${account_number}.`);
+        }
+        await rh.cancelStockOrder(order_id);
         return structured({ status: "cancelled", order_id });
       } catch (e) {
         return textError(String(e));
@@ -339,40 +288,51 @@ export function registerOrderTools(server: McpServer): void {
     },
   );
 
-  // -------------------------------------------------------------------------
-  // Get order status
-  // -------------------------------------------------------------------------
   server.registerTool(
-    "robinhood_get_order_status",
+    "robinhood_cancel_option_order",
     {
-      title: "Get Order Status",
-      description: "Get the current status of a specific order by its ID.",
+      title: "Cancel Option Order",
+      description:
+        "Cancel one pending option order. The order must belong to account_number. Always confirm with the user before calling.",
       inputSchema: {
-        order_id: z.string().describe("The order UUID."),
-        order_type: z
-          .enum(["stock", "option", "crypto"])
-          .default("stock")
-          .describe("Type of order."),
+        account_number: z.string().describe("Brokerage account number the order belongs to."),
+        order_id: z.string().describe("Order UUID (from robinhood_get_option_orders)."),
       },
-      outputSchema: {
-        order: z.unknown(),
-      },
-      annotations: READ_ONLY,
+      outputSchema: { status: z.string(), order_id: z.string() },
+      annotations: CANCEL_ORDER_ANNOTATIONS,
     },
-    async ({ order_id, order_type }) => {
+    async ({ account_number, order_id }) => {
       try {
         const rh = await getAuthenticatedRh();
-        let order: unknown;
-
-        if (order_type === "stock") {
-          order = await rh.getStockOrder(order_id);
-        } else if (order_type === "option") {
-          order = await rh.getOptionOrder(order_id);
-        } else {
-          order = await rh.getCryptoOrder(order_id);
+        const order = await rh.getOptionOrder(order_id);
+        if (order.account_number != null && order.account_number !== account_number) {
+          return textError(`Order ${order_id} does not belong to account ${account_number}.`);
         }
+        await rh.cancelOptionOrder(order_id);
+        return structured({ status: "cancelled", order_id });
+      } catch (e) {
+        return textError(String(e));
+      }
+    },
+  );
 
-        return structured({ order });
+  server.registerTool(
+    "robinhood_cancel_crypto_order",
+    {
+      title: "Cancel Crypto Order",
+      description: "Cancel one pending crypto order. Always confirm with the user before calling.",
+      inputSchema: {
+        rhs_account_number: RHS_ACCOUNT_PARAM,
+        order_id: z.string().describe("Order UUID (from robinhood_get_crypto_orders)."),
+      },
+      outputSchema: { status: z.string(), order_id: z.string() },
+      annotations: CANCEL_ORDER_ANNOTATIONS,
+    },
+    async ({ order_id }) => {
+      try {
+        const rh = await getAuthenticatedRh();
+        await rh.cancelCryptoOrder(order_id);
+        return structured({ status: "cancelled", order_id });
       } catch (e) {
         return textError(String(e));
       }

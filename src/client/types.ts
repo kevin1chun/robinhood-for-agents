@@ -1322,7 +1322,15 @@ export interface EquityOrderReview {
   quote_timestamp: string | null;
 }
 
+/** An order leg, named by option instrument id or by expiration + strike + type. */
+export type OptionLegInput = {
+  side: "buy" | "sell";
+  positionEffect: "open" | "close";
+  ratioQuantity?: number;
+} & ({ optionId: string } | { expirationDate: string; strike: number; optionType: "call" | "put" });
+
 export interface OptionOrderReviewLeg {
+  option_id: string;
   expiration_date: string;
   strike: number;
   option_type: "call" | "put";

@@ -1,8 +1,8 @@
 ---
 name: robinhood-for-agents
-description: Trade stocks, options, and crypto on Robinhood — dual mode (MCP tools or TypeScript client).
+description: Trade stocks, options, and crypto on Robinhood — MCP tools (standard mode on the web API, or agent mode relayed to Robinhood's hosted MCP) or TypeScript client.
 homepage: https://github.com/kevin1chun/robinhood-for-agents
-allowed-tools: Bash(bun:*), Bash(bunx robinhood-for-agents:*), mcp__robinhood-for-agents__*
+allowed-tools: Bash(bun:*), Bash(bunx robinhood-for-agents:*), mcp__robinhood-for-agents__*, mcp__robinhood-agent__*
 install:
   - kind: node
     package: robinhood-for-agents
@@ -33,7 +33,7 @@ console.log(JSON.stringify(holdings, null, 2));
 
 See [client-api.md](client-api.md) for all available methods and signatures.
 
-> **MCP users:** If you have the `robinhood-for-agents` MCP server configured, you may use MCP tools instead. See [reference.md](reference.md) for tool parameters. MCP is optional — the client API above does everything the MCP tools do. Pick **one** mode per session and stay in it: the MCP server and a `bun -e` script are two separate token-refreshing processes, and refresh tokens are single-use, so interleaving them can poison one of them. In MCP mode, `robinhood_check_session` is the session check — it probes the API rather than just reading the keychain.
+> **MCP users:** If you have the `robinhood-for-agents` MCP server configured, you may use MCP tools instead. See [reference.md](reference.md) for tool parameters. MCP is optional — the client API above does everything the standard-mode tools do; only the agent-mode server (`robinhood-agent`) serves the agent-only tools. Pick **one** mode per session and stay in it: the MCP server and a `bun -e` script are two separate token-refreshing processes, and refresh tokens are single-use, so interleaving them can poison one of them. In MCP mode, `robinhood_check_session` is the session check — it probes the API rather than just reading the keychain.
 
 ## CRITICAL SAFETY RULES
 1. **Always confirm before placing any order** — show order preview, get explicit "yes"

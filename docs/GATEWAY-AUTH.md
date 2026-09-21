@@ -41,8 +41,8 @@ Concrete default mapping used by the gateway (inspired by the illustrative tiers
 
 | Tier | Tools | Required Permission |
 |------|-------|---------------------|
-| Read | `robinhood_get_portfolio`, `robinhood_get_stock_quote`, `robinhood_get_historicals`, `robinhood_get_news`, `robinhood_search`, `robinhood_get_movers`, `robinhood_get_crypto`, `robinhood_get_options`, `robinhood_get_orders`, `robinhood_get_order_status`, `robinhood_check_session` | `read` |
-| Trade | `robinhood_place_stock_order`, `robinhood_place_option_order`, `robinhood_place_crypto_order`, `robinhood_cancel_order` | `read` + `trade` |
+| Read | `robinhood_get_portfolio`, `robinhood_get_equity_quotes`, `robinhood_get_equity_historicals`, `robinhood_get_equity_news`, `robinhood_search`, `robinhood_get_movers`, `robinhood_get_crypto_quotes`, `robinhood_get_option_chains`, `robinhood_get_option_instruments`, `robinhood_get_option_quotes`, `robinhood_get_equity_orders`, `robinhood_get_option_orders`, `robinhood_get_crypto_orders`, `robinhood_check_session` | `read` |
+| Trade | `robinhood_place_equity_order`, `robinhood_place_option_order`, `robinhood_place_crypto_order`, `robinhood_cancel_equity_order`, `robinhood_cancel_option_order`, `robinhood_cancel_crypto_order` | `read` + `trade` |
 | Account | `robinhood_get_account`, `robinhood_get_accounts` | `read` + `account` |
 | Admin-only | `robinhood_browser_login` | `admin` |
 | Admin | All tools (including unmapped) | `admin` |
@@ -87,7 +87,6 @@ Agents connect to the gateway on port 3001. The upstream MCP server (port 3000) 
 | `AGENT_VERIFIER` | `structural` | Verifier type: `structural` (dev only, blocked when auth enabled), `shared-secret` (HMAC-SHA256) |
 | `AGENT_AUTH_SECRET` | — | HMAC secret for `shared-secret` verifier (min 32 chars). Generate with `openssl rand -hex 32` |
 | `AGENT_AUTH_DEFAULT_POLICY` | `deny` | Policy for unmapped tools: `deny` or `allow` |
-| `ROBINHOOD_ACCESS_TOKEN` | — | Robinhood API token (for MCP server) |
 
 > [!IMPORTANT]
 > For any non-localhost deployment, place a TLS-terminating reverse proxy

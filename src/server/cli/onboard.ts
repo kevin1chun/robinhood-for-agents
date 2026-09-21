@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import * as p from "@clack/prompts";
 import { loadTokens } from "../../client/token-store.js";
+import type { Mode } from "../mode.js";
 import { claudeCode } from "./agents/claude-code.js";
 import { codex } from "./agents/codex.js";
 import { openclaw } from "./agents/openclaw.js";
@@ -85,13 +86,34 @@ export async function onboard(preselectedAgent?: AgentId): Promise<void> {
     process.exit(0);
   }
 
+  // --- Mode ---
+  let mode: Mode = "standard";
+  if (agent.installMcp) {
+    const selected = await p.select({
+      message: "Which mode?",
+      options: [
+        { value: "standard" as const, label: "standard", hint: "Chrome login, web API" },
+        {
+          value: "agent" as const,
+          label: "agent",
+          hint: "Robinhood's official credential, hosted MCP",
+        },
+      ],
+    });
+    if (p.isCancel(selected)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+    mode = selected;
+  }
+
   // --- Install MCP ---
   if (agent.installMcp) {
     const entry = binPath();
     const mcpSpinner = p.spinner();
     mcpSpinner.start("Installing MCP config...");
     try {
-      agent.installMcp(entry);
+      agent.installMcp(entry, mode);
       mcpSpinner.stop("MCP server registered.");
     } catch (err) {
       mcpSpinner.stop("MCP installation failed.");
@@ -127,6 +149,11 @@ export async function onboard(preselectedAgent?: AgentId): Promise<void> {
       p.log.error(err instanceof Error ? err.message : "Unknown error during dependency install");
       // Non-fatal — continue
     }
+  }
+
+  if (mode === "agent") {
+    p.outro(`Done! ${agent.postInstallHint} Then ask your agent to run robinhood_official_login.`);
+    return;
   }
 
   // --- Login ---

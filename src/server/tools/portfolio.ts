@@ -15,9 +15,7 @@ export function registerPortfolioTools(server: McpServer): void {
       inputSchema: {
         account_number: z
           .string()
-          .optional()
-          .describe("Specific account number, or omit for default."),
-        with_dividends: z.boolean().default(false).describe("Include dividend info per holding."),
+          .describe("Brokerage account number (from robinhood_get_accounts)."),
       },
       outputSchema: {
         holdings: z.unknown(),
@@ -47,13 +45,10 @@ export function registerPortfolioTools(server: McpServer): void {
       },
       annotations: READ_ONLY,
     },
-    async ({ account_number, with_dividends }) => {
+    async ({ account_number }) => {
       try {
         const rh = await getAuthenticatedRh();
-        const holdings = await rh.buildHoldings({
-          accountNumber: account_number,
-          withDividends: with_dividends,
-        });
+        const holdings = await rh.buildHoldings({ accountNumber: account_number });
         const accountProfile = await rh.getAccountProfile(account_number);
         const portfolioProfile = await rh.getPortfolioProfile(account_number);
         const unified = await rh.getUnifiedPortfolio(account_number);
@@ -100,24 +95,27 @@ export function registerPortfolioTools(server: McpServer): void {
     {
       title: "Get Equity Positions",
       description:
-        "Get raw equity positions (shares, average buy price, per-account) without holding enrichment.",
+        "Get raw non-zero equity positions (shares, average buy price) for one account, without holding enrichment. Results are complete (next_cursor is always null).",
       inputSchema: {
         account_number: z
           .string()
+          .describe("Brokerage account number (from robinhood_get_accounts)."),
+        cursor: z
+          .string()
           .optional()
-          .describe("Specific account number, or omit for all accounts."),
-        nonzero: z.boolean().default(true).describe("Only positions with a non-zero quantity."),
+          .describe("Accepted for parity; results are complete, so next_cursor is always null."),
       },
       outputSchema: {
         positions: z.array(z.unknown()),
+        next_cursor: z.null(),
       },
       annotations: READ_ONLY,
     },
-    async ({ account_number, nonzero }) => {
+    async ({ account_number }) => {
       try {
         const rh = await getAuthenticatedRh();
-        const positions = await rh.getPositions({ accountNumber: account_number, nonzero });
-        return structured({ positions });
+        const positions = await rh.getPositions({ accountNumber: account_number, nonzero: true });
+        return structured({ positions, next_cursor: null });
       } catch (e) {
         return textError(String(e));
       }

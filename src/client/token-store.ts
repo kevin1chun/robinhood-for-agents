@@ -143,17 +143,22 @@ const AES_ALGO = "aes-256-gcm";
 const IV_BYTES = 12;
 const KEY_BYTES = 32;
 
+/** The key in `ROBINHOOD_TOKEN_KEY` (base64, 32 bytes), or undefined when unset. */
+export function envEncryptionKey(): Buffer | undefined {
+  const envKey = process.env.ROBINHOOD_TOKEN_KEY?.trim();
+  if (!envKey) return undefined;
+  const key = Buffer.from(envKey, "base64");
+  if (key.length !== KEY_BYTES) {
+    throw new Error(`ROBINHOOD_TOKEN_KEY must decode to ${KEY_BYTES} bytes (got ${key.length})`);
+  }
+  return key;
+}
+
 /** Resolve the encryption key: env var → keychain → generate (keychain only). */
 async function resolveEncryptionKey(): Promise<Buffer> {
   // 1. Env var
-  const envKey = process.env.ROBINHOOD_TOKEN_KEY?.trim();
-  if (envKey) {
-    const key = Buffer.from(envKey, "base64");
-    if (key.length !== KEY_BYTES) {
-      throw new Error(`ROBINHOOD_TOKEN_KEY must decode to ${KEY_BYTES} bytes (got ${key.length})`);
-    }
-    return key;
-  }
+  const envKey = envEncryptionKey();
+  if (envKey) return envKey;
 
   // 2. Keychain
   try {
@@ -194,6 +199,35 @@ function isEncryptedBlob(data: unknown): data is EncryptedBlob {
   );
 }
 
+/** Encrypt `plaintext` into the JSON `{iv, tag, ciphertext}` blob under `key`, else the resolved key. */
+export async function sealBlob(plaintext: string, key?: Buffer): Promise<string> {
+  key ??= await resolveEncryptionKey();
+  const { createCipheriv, randomBytes } = await import("node:crypto");
+  const iv = randomBytes(IV_BYTES);
+  const cipher = createCipheriv(AES_ALGO, key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const blob: EncryptedBlob = {
+    iv: iv.toString("base64"),
+    tag: cipher.getAuthTag().toString("base64"),
+    ciphertext: encrypted.toString("base64"),
+  };
+  return JSON.stringify(blob);
+}
+
+/** Decrypt a blob written by `sealBlob`; null when it is not one. Throws on a wrong key. */
+export async function openBlob(raw: string, key?: Buffer): Promise<string | null> {
+  const blob: unknown = JSON.parse(raw);
+  if (!isEncryptedBlob(blob)) return null;
+  key ??= await resolveEncryptionKey();
+  const { createDecipheriv } = await import("node:crypto");
+  const decipher = createDecipheriv(AES_ALGO, key, Buffer.from(blob.iv, "base64"));
+  decipher.setAuthTag(Buffer.from(blob.tag, "base64"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(blob.ciphertext, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
 export class EncryptedFileTokenStore implements TokenStore {
   private filePath: string;
 
@@ -207,22 +241,9 @@ export class EncryptedFileTokenStore implements TokenStore {
   async load(): Promise<TokenData | null> {
     try {
       const { readFile } = await import("node:fs/promises");
-      const raw = await readFile(this.filePath, "utf8");
-      const blob: unknown = JSON.parse(raw);
-
-      if (!isEncryptedBlob(blob)) return null;
-
-      const key = await resolveEncryptionKey();
-      const { createDecipheriv } = await import("node:crypto");
-      const decipher = createDecipheriv(AES_ALGO, key, Buffer.from(blob.iv, "base64"));
-      decipher.setAuthTag(Buffer.from(blob.tag, "base64"));
-
-      const decrypted = Buffer.concat([
-        decipher.update(Buffer.from(blob.ciphertext, "base64")),
-        decipher.final(),
-      ]);
-
-      const data: unknown = JSON.parse(decrypted.toString("utf8"));
+      const plaintext = await openBlob(await readFile(this.filePath, "utf8"));
+      if (plaintext === null) return null;
+      const data: unknown = JSON.parse(plaintext);
       return isTokenData(data) ? data : null;
     } catch {
       return null;
@@ -230,25 +251,11 @@ export class EncryptedFileTokenStore implements TokenStore {
   }
 
   async save(tokens: TokenData): Promise<void> {
-    const key = await resolveEncryptionKey();
-    const { createCipheriv, randomBytes } = await import("node:crypto");
-    const iv = randomBytes(IV_BYTES);
-    const cipher = createCipheriv(AES_ALGO, key, iv);
-
-    const plaintext = JSON.stringify(tokens);
-    const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-    const tag = cipher.getAuthTag();
-
-    const blob: EncryptedBlob = {
-      iv: iv.toString("base64"),
-      tag: tag.toString("base64"),
-      ciphertext: encrypted.toString("base64"),
-    };
-
+    const blob = await sealBlob(JSON.stringify(tokens));
     const { writeFile, mkdir } = await import("node:fs/promises");
     const { dirname } = await import("node:path");
     await mkdir(dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, JSON.stringify(blob), { encoding: "utf8", mode: 0o600 });
+    await writeFile(this.filePath, blob, { encoding: "utf8", mode: 0o600 });
   }
 
   async delete(): Promise<void> {

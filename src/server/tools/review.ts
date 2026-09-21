@@ -1,8 +1,9 @@
 /**
- * Order-review tools — `robinhood_review_equity_order` and
- * `robinhood_review_option_order`. They mirror the official Robinhood Trading MCP
- * tools of the same name: a pre-trade SIMULATION that places NOTHING. They are
- * the "review" half of the review → show-user → place two-step gate.
+ * Order-review tools — `robinhood_review_equity_order`,
+ * `robinhood_review_option_order` and `robinhood_preview_crypto_order`. They
+ * mirror the official Robinhood Trading MCP tools of the same name: a pre-trade
+ * SIMULATION that places NOTHING. They are the "review" half of the
+ * review → show-user → place two-step gate.
  *
  * Reimplemented over read-only, standard-token GETs (the app's own order-preview
  * preflight: `order_checks/presubmit_data`, options `collateral`) plus a live
@@ -27,7 +28,19 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getAuthenticatedRh, structured, textError } from "./_helpers.js";
+import {
+  CRYPTO_ORDER_PARAMS,
+  EQUITY_ORDER_PARAMS,
+  findPair,
+  getAuthenticatedRh,
+  OPTION_ORDER_PARAMS,
+  parseCryptoOrder,
+  parseEquityOrder,
+  parseOptionOrder,
+  stringEnum,
+  structured,
+  textError,
+} from "./_helpers.js";
 
 const READ_ONLY = { readOnlyHint: true } as const;
 
@@ -40,32 +53,8 @@ export function registerReviewTools(server: McpServer): void {
     {
       title: "Review Equity Order",
       description:
-        "Simulate a stock order WITHOUT placing it — the required 'review' step before robinhood_place_stock_order. Returns the order echoed back, the live quote (so the user sees the cost), and order_checks: a reproduction of Robinhood's price collar that flags a mis-priced limit/stop order (e.g. a buy limit far above the market). order_checks is {} only when the collar ran and found no problem — read evaluated_checks/not_evaluated_checks to see what was and wasn't checked. Nothing is placed. ALWAYS show the review to the user before placing.",
-      inputSchema: {
-        symbol: z.string().describe("Stock ticker symbol (e.g. AAPL)."),
-        side: z
-          .enum(["buy", "sell", "sell_short"])
-          .describe(
-            "Order side. 'sell' closes a long position; 'sell_short' opens a short position. To cover a short, use 'buy'.",
-          ),
-        quantity: z
-          .number()
-          .positive()
-          .describe("Number of shares. Fractional allowed except for 'sell_short'."),
-        limit_price: z
-          .number()
-          .positive()
-          .optional()
-          .describe("Limit price. Provide for limit / stop-limit orders."),
-        stop_price: z
-          .number()
-          .positive()
-          .optional()
-          .describe("Stop price. Provide for stop / stop-limit orders."),
-        account_number: z
-          .string()
-          .describe("Robinhood account number. Get from robinhood_get_accounts."),
-      },
+        "Simulate a stock order WITHOUT placing it — the required 'review' step before robinhood_place_equity_order. Returns the order echoed back, the live quote (so the user sees the cost), and order_checks: a reproduction of Robinhood's price collar that flags a mis-priced limit/stop order (e.g. a buy limit far above the market). order_checks is {} only when the collar ran and found no problem — read evaluated_checks/not_evaluated_checks to see what was and wasn't checked. Nothing is placed. ALWAYS show the review to the user before placing.",
+      inputSchema: EQUITY_ORDER_PARAMS,
       outputSchema: {
         symbol: z.string(),
         side: z.string(),
@@ -84,21 +73,23 @@ export function registerReviewTools(server: McpServer): void {
       },
       annotations: READ_ONLY,
     },
-    async ({ symbol, side, quantity, limit_price, stop_price, account_number }) => {
+    async (args) => {
       try {
+        const o = parseEquityOrder(args);
+        const account_number = args.account_number;
         const rh = await getAuthenticatedRh();
         const review = await rh.reviewEquityOrder({
-          symbol,
-          side,
-          quantity,
-          limitPrice: limit_price,
-          stopPrice: stop_price,
+          symbol: args.symbol,
+          side: args.side,
+          quantity: o.quantity,
+          limitPrice: o.limitPrice,
+          stopPrice: o.stopPrice,
           accountNumber: account_number,
         });
 
         const hasAlert = Object.keys(review.order_checks).length > 0;
         const noteParts: string[] = [
-          "SIMULATION ONLY — no order was placed. This is the review step before robinhood_place_stock_order; show it to the user before placing.",
+          "SIMULATION ONLY — no order was placed. This is the review step before robinhood_place_equity_order; show it to the user before placing.",
           hasAlert
             ? "order_checks contains a reproduced price-collar ALERT (Robinhood's extremely-marketable/unmarketable check) — surface it prominently and re-confirm the price with the user."
             : review.evaluated_checks.length > 0
@@ -146,30 +137,11 @@ export function registerReviewTools(server: McpServer): void {
       description:
         "Simulate a single- or multi-leg option order WITHOUT placing it — the required 'review' step before robinhood_place_option_order. Returns the order echoed back with per-leg market data (mark/bid/ask/greeks) and the collateral the order would require. Nothing is placed. The reproduced check set is intentionally thin for options (see not_evaluated_checks) — options have no simple last-trade price collar. ALWAYS show the review to the user before placing.",
       inputSchema: {
-        symbol: z.string().describe("Underlying stock ticker symbol."),
-        legs: z
-          .array(
-            z.object({
-              expiration_date: z.string().describe("Expiration date (YYYY-MM-DD)."),
-              strike: z.number().describe("Strike price."),
-              option_type: z.enum(["call", "put"]).describe("Option type."),
-              side: z.enum(["buy", "sell"]).describe("Buy or sell this leg."),
-              position_effect: z.enum(["open", "close"]).describe("Opening or closing."),
-              ratio_quantity: z.number().default(1).describe("Ratio quantity for this leg."),
-            }),
-          )
-          .describe("Option legs. Single-leg for simple orders, multiple for spreads."),
-        price: z
-          .number()
-          .positive()
-          .describe("Limit price per contract (single-leg) or net price (spreads)."),
-        quantity: z.number().positive().describe("Number of contracts."),
-        direction: z
-          .enum(["debit", "credit"])
-          .describe("Debit for buys/debit spreads, credit for sells/credit spreads."),
-        account_number: z
-          .string()
-          .describe("Robinhood account number. Get from robinhood_get_accounts."),
+        ...OPTION_ORDER_PARAMS,
+        chain_symbol: z.string().optional().describe("Underlying ticker (e.g. 'AAPL', 'SPXW')."),
+        underlying_type: stringEnum(["equity", "index"])
+          .optional()
+          .describe("'equity' or 'index'. Accepted for parity; collateral is always included."),
       },
       outputSchema: {
         account_number: z.string(),
@@ -186,22 +158,17 @@ export function registerReviewTools(server: McpServer): void {
       },
       annotations: READ_ONLY,
     },
-    async ({ symbol, legs, price, quantity, direction, account_number }) => {
+    async (args) => {
       try {
+        const o = parseOptionOrder(args);
+        const account_number = args.account_number;
         const rh = await getAuthenticatedRh();
         const review = await rh.reviewOptionOrder({
-          symbol,
-          legs: legs.map((l) => ({
-            expirationDate: l.expiration_date,
-            strike: l.strike,
-            optionType: l.option_type,
-            side: l.side,
-            positionEffect: l.position_effect,
-            ratioQuantity: l.ratio_quantity,
-          })),
-          price,
-          quantity,
-          direction,
+          symbol: args.chain_symbol,
+          legs: o.legs,
+          price: o.price,
+          quantity: o.quantity,
+          direction: o.direction,
           accountNumber: account_number,
         });
 
@@ -217,6 +184,53 @@ export function registerReviewTools(server: McpServer): void {
           evaluated_checks: review.evaluated_checks,
           not_evaluated_checks: review.not_evaluated_checks,
           note: "SIMULATION ONLY — no order was placed. This is the review step before robinhood_place_option_order; show it to the user before placing. Per-leg market_data (mark/bid/ask/greeks) and the required collateral are included. order_checks is intentionally thin for options (no simple last-trade collar) — not_evaluated_checks lists what was NOT reproduced, so do not read the empty order_checks as a blanket approval. Options are the higher-stakes side (contract multiplier ×100): double-check the net debit/credit and quantity with the user.",
+        });
+      } catch (e) {
+        return textError(String(e));
+      }
+    },
+  );
+
+  server.registerTool(
+    "robinhood_preview_crypto_order",
+    {
+      title: "Preview Crypto Order",
+      description:
+        "Preview a crypto order WITHOUT placing it — the review step before robinhood_place_crypto_order. Validates the order as place would, then returns the live quote and the estimated price, quantity, and notional (a buy is priced at the ask, a sell at the bid, a limit at its limit price). Nothing is placed. ALWAYS show the preview to the user before placing.",
+      inputSchema: CRYPTO_ORDER_PARAMS,
+      outputSchema: {
+        symbol: z.string(),
+        currency_pair_id: z.string(),
+        side: z.string(),
+        type: z.string(),
+        quote: z.unknown(),
+        estimated_price: z.number().nullable(),
+        estimated_quantity: z.number().nullable(),
+        estimated_notional: z.number().nullable(),
+        note: z.string(),
+      },
+      annotations: READ_ONLY,
+    },
+    async (args) => {
+      try {
+        const o = parseCryptoOrder(args);
+        const rh = await getAuthenticatedRh();
+        const pair = findPair(await rh.getCurrencyPairs(), args.symbol);
+        if (!pair) return textError(`Unknown crypto pair: ${args.symbol}`);
+        const quote = await rh.getCryptoQuote(pair.asset_currency?.code ?? "");
+        const market = Number(args.side === "buy" ? quote.ask_price : quote.bid_price);
+        const price = o.limitPrice ?? (market > 0 ? market : null);
+        const quantity = o.amountIn === "quantity" ? o.amount : price ? o.amount / price : null;
+        return structured({
+          symbol: pair.symbol ?? args.symbol,
+          currency_pair_id: pair.id,
+          side: args.side,
+          type: o.orderType,
+          quote,
+          estimated_price: price,
+          estimated_quantity: quantity,
+          estimated_notional: o.amountIn === "price" ? o.amount : price ? o.amount * price : null,
+          note: "PREVIEW ONLY — no order was placed. Estimates use the live quote and move with the market; fees and Robinhood's own order checks are not included.",
         });
       } catch (e) {
         return textError(String(e));

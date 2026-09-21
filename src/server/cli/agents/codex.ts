@@ -1,10 +1,13 @@
 import { execFileSync } from "node:child_process";
-import type { AgentMeta } from "./types.js";
+import type { Mode } from "../../mode.js";
+import { type AgentMeta, MCP_ENTRY } from "./types.js";
 
-function installMcp(binPath: string): void {
-  execFileSync("codex", ["mcp", "add", "robinhood-for-agents", "--", "bun", "run", binPath], {
-    stdio: "pipe",
-  });
+function installMcp(binPath: string, mode: Mode): void {
+  execFileSync(
+    "codex",
+    ["mcp", "add", MCP_ENTRY[mode], "--", "bun", "run", binPath, "--mode", mode],
+    { stdio: "pipe" },
+  );
 }
 
 export const codex: AgentMeta = {

@@ -1,3 +1,5 @@
+import type { Mode } from "../../mode.js";
+
 export type AgentId = "claude-code" | "openclaw" | "codex";
 
 export interface AgentMeta {
@@ -6,11 +8,17 @@ export interface AgentMeta {
   description: string;
   cli: string;
   supportsSkills: boolean;
-  installMcp?: (binPath: string) => void;
+  installMcp?: (binPath: string, mode: Mode) => void;
   installSkills?: (skillsSource: string) => void;
   workspaceDir?: string;
   postInstallHint: string;
 }
+
+/** Client entry name per mode; two entries run both modes side by side. */
+export const MCP_ENTRY: Record<Mode, string> = {
+  standard: "robinhood-for-agents",
+  agent: "robinhood-agent",
+};
 
 export const AGENTS: ReadonlyArray<{
   value: AgentId;

@@ -37,7 +37,10 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-`src/client/` is the TypeScript API client. `src/server/` is the MCP server that wraps it. Both talk directly to Robinhood APIs with Bearer auth -- no intermediate proxy.
+`src/client/` is the TypeScript API client. `src/server/` is the MCP server, which runs in one mode per process (`--mode agent|standard`, else `ROBINHOOD_MODE`, else `standard`; `src/server/mode.ts`):
+
+- **Standard:** the 59 tools of `src/server/tools/` call Robinhood's web API through `src/client/` with the Chrome session's Bearer token, as drawn above.
+- **Agent:** `src/server/official/forward.ts` registers the 81 official tools with Robinhood's own title, description, schemas and annotations, verbatim (from `docs/official-mcp-tools.json`, the hosted server's `tools/list`, rewritten by `bun run refresh-official-tools`) plus `robinhood_official_login`, and relays each call unchanged to Robinhood's hosted MCP at `agent.robinhood.com` under the official OAuth credential (`official/auth.ts`). No web-API code path runs.
 
 ## Tech Stack
 
@@ -57,7 +60,7 @@
 ```
 src/client/                    <- robinhood-for-agents client library
 ├── index.ts                   <- Exports: RobinhoodClient, getClient(), login()
-├── client.ts                  <- RobinhoodClient class (76 async methods)
+├── client.ts                  <- RobinhoodClient class (82 async methods)
 ├── auth.ts                    <- Direct auth: TokenStore load, Bearer injection, proactive +
 │                                 401 refresh, rotation recovery (adoptFromStore)
 ├── token-store.ts             <- TokenStore interface + KeychainTokenStore + EncryptedFileTokenStore
@@ -71,12 +74,17 @@ src/client/                    <- robinhood-for-agents client library
 
 src/compute/                   <- Pure derived-data modules (no HTTP)
 ├── realized-pnl.ts            <- FIFO realized P&L + bucketing
-└── order-review.ts            <- Price-collar simulation for order review
+├── order-review.ts            <- Price-collar simulation for order review
+├── indicators.ts              <- Technical indicators over OHLCV bars
+└── historicals-window.ts      <- [start, end] bar request -> REST span/interval grid
 
 src/server/                    <- robinhood-for-agents MCP server
 ├── index.ts                   <- main() export, StdioServerTransport
 ├── server.ts                  <- McpServer creation + tool registration
 ├── browser-auth.ts            <- Playwright browser login capture
+├── mode.ts                    <- resolveMode: --mode, ROBINHOOD_MODE, default standard
+├── official/                  <- agent mode: doc.ts (tools from docs/official-mcp-tools.json),
+│                                 auth.ts (hosted-MCP OAuth credential), forward.ts (relay to agent.robinhood.com)
 ├── cli/
 │   ├── onboard.ts            <- Interactive setup TUI (also handles Docker token export)
 │   ├── install-mcp.ts        <- Install MCP server config
@@ -85,22 +93,27 @@ src/server/                    <- robinhood-for-agents MCP server
 │   ├── detect.ts             <- Agent detection
 │   ├── paths.ts              <- Package/bin path resolution
 │   └── agents/               <- Agent-specific config generators
-└── tools/                     <- 50 MCP tools across 12 modules
+└── tools/                     <- standard mode: 59 MCP tools across 12 modules
+    ├── _helpers.ts           <- result helpers, stringEnum, shared order-parameter schemas + validators
     ├── auth.ts               <- browser_login, check_session
     ├── portfolio.ts          <- get_portfolio, get_equity_positions, get_accounts, get_account
-    ├── stocks.ts             <- get_stock_quote, get_historicals, get_fundamentals, get_short_interest,
-    │                            get_news, search, get_equity_price_book, get_earnings_results,
-    │                            get_earnings_calendar, get_equity_tradability
-    ├── options.ts            <- get_options, get_option_positions, get_option_orders, get_option_historicals
-    ├── crypto.ts             <- get_crypto
-    ├── orders.ts             <- place_stock_order, place_option_order, place_crypto_order,
-    │                            get_orders, cancel_order, get_order_status
-    ├── markets.ts            <- get_movers, get_indexes, get_index_quotes
+    ├── stocks.ts             <- get_equity_quotes, get_equity_historicals, get_equity_technical_indicators,
+    │                            get_equity_fundamentals, get_short_interest, get_equity_news, search,
+    │                            get_equity_price_book, get_earnings_results, get_earnings_calendar,
+    │                            get_equity_tradability
+    ├── options.ts            <- get_option_chains, get_option_instruments, get_option_quotes,
+    │                            get_option_positions, get_option_orders, get_option_historicals
+    ├── crypto.ts             <- get_crypto_quotes, get_crypto_positions, get_currency_pairs,
+    │                            get_crypto_historicals
+    ├── orders.ts             <- place_equity_order, place_option_order, place_crypto_order,
+    │                            get_equity_orders, get_crypto_orders,
+    │                            cancel_equity_order, cancel_option_order, cancel_crypto_order
+    ├── markets.ts            <- get_movers, get_market_hours, get_indexes, get_index_quotes
     ├── watchlists.ts         <- get/create/update watchlists, add/remove items,
     │                            follow/unfollow, options-watchlist read + add/remove
     ├── scanners.ts           <- get_scans, get_scanner_filter_specs
     ├── pnl.ts                <- get_realized_pnl, get_pnl_trade_history
-    ├── review.ts             <- review_equity_order, review_option_order
+    ├── review.ts             <- review_equity_order, review_option_order, preview_crypto_order
     └── tax-lots.ts           <- get_equity_tax_lots
 ```
 
@@ -400,26 +413,27 @@ Every account-scoped method accepts `accountNumber?: string`:
 - `buildHoldings({ accountNumber })` -- P&L for specific account
 - Omitted -> default account
 
-## MCP Tools (50 total)
+## MCP Tools
 
-Each tool accesses the client via the `getClient()` singleton. Tools are registered by module in `src/server/tools/`:
+Standard mode (59): the tools access the client via the `getClient()` singleton and are registered by module in `src/server/tools/`. Agent mode (82): `src/server/official/forward.ts` registers every official tool in the Parity table plus `official_login`.
 
 | Module | Tools (all `robinhood_`-prefixed) |
 |---|---|
 | `auth.ts` (2) | `browser_login`, `check_session` |
 | `portfolio.ts` (4) | `get_portfolio`, `get_equity_positions`, `get_accounts`, `get_account` |
-| `stocks.ts` (10) | `get_stock_quote`, `get_historicals`, `get_fundamentals`, `get_short_interest`, `get_news`, `search`, `get_equity_price_book`, `get_earnings_results`, `get_earnings_calendar`, `get_equity_tradability` |
-| `options.ts` (4) | `get_options`, `get_option_positions`, `get_option_orders`, `get_option_historicals` |
-| `crypto.ts` (1) | `get_crypto` |
-| `orders.ts` (6) | `place_stock_order`, `place_option_order`, `place_crypto_order`, `get_orders`, `cancel_order`, `get_order_status` |
+| `stocks.ts` (11) | `get_equity_quotes`, `get_equity_historicals`, `get_equity_technical_indicators`, `get_equity_fundamentals`, `get_short_interest`, `get_equity_news`, `search`, `get_equity_price_book`, `get_earnings_results`, `get_earnings_calendar`, `get_equity_tradability` |
+| `options.ts` (6) | `get_option_chains`, `get_option_instruments`, `get_option_quotes`, `get_option_positions`, `get_option_orders`, `get_option_historicals` |
+| `crypto.ts` (4) | `get_crypto_quotes`, `get_crypto_positions`, `get_currency_pairs`, `get_crypto_historicals` |
+| `orders.ts` (8) | `place_equity_order`, `place_option_order`, `place_crypto_order`, `get_equity_orders`, `get_crypto_orders`, `cancel_equity_order`, `cancel_option_order`, `cancel_crypto_order` |
 | `markets.ts` (4) | `get_movers`, `get_market_hours`, `get_indexes`, `get_index_quotes` |
 | `watchlists.ts` (12) | `get_watchlists`, `get_watchlist_items`, `get_popular_watchlists`, `get_option_watchlist`, `create_watchlist`, `update_watchlist`, `add_to_watchlist`, `remove_from_watchlist`, `follow_watchlist`, `unfollow_watchlist`, `add_option_to_watchlist`, `remove_option_from_watchlist` |
 | `scanners.ts` (2) | `get_scans`, `get_scanner_filter_specs` |
 | `pnl.ts` (2) | `get_realized_pnl`, `get_pnl_trade_history` |
-| `review.ts` (2) | `review_equity_order`, `review_option_order` |
+| `review.ts` (3) | `review_equity_order`, `review_option_order`, `preview_crypto_order` |
 | `tax-lots.ts` (1) | `get_equity_tax_lots` |
+| `official/forward.ts` (82, agent mode) | every row of the Parity table, plus `official_login` |
 
-The [README](../README.md#mcp-tools-50) describes each tool; [`skills/robinhood-for-agents/reference.md`](../skills/robinhood-for-agents/reference.md) documents parameters and response shapes; [`skills/robinhood-for-agents/client-api.md`](../skills/robinhood-for-agents/client-api.md) maps each tool to the client methods it wraps.
+Tools that mirror an official Robinhood Trading MCP tool take its name and input schema; `docs/official-mcp-tools.json` holds the official tools and `docs/official-mcp-tools.md` the Parity table, and `__tests__/server/official-parity.test.ts` fails on any drift. Official enum-like parameters are plain strings in the listed schema and validated at call time (`stringEnum` in `_helpers.ts`), because the official schemas carry no `enum`. The [README](../README.md#tools) describes each tool; [`skills/robinhood-for-agents/reference.md`](../skills/robinhood-for-agents/reference.md) documents parameters and response shapes; [`skills/robinhood-for-agents/client-api.md`](../skills/robinhood-for-agents/client-api.md) maps each tool to the client methods it wraps.
 
 ## Order Placement
 
@@ -465,7 +479,7 @@ Short sales carry constraints beyond the side/effect pair, all verified against 
 | `gfd` only | `Short sell orders must be good for day only.` |
 | `regular_hours` / `extended_hours` only | `Short selling isn't available during the 24 Hour Market.` |
 | Session named outside regular hours | `It's after market close. To place this short sell order, change your trading session to extended hours.` |
- `orderStock()` sets `position_effect` **only** for `sell_short`, so an ordinary buy/sell payload from the client library is byte-identical to what it sent before. (Orders placed through the MCP tool always carry `market_hours`, because the tool requires it — matching what Robinhood's own client sends on every order.)
+ `orderStock()` sets `position_effect` **only** for `sell_short`, so an ordinary buy/sell payload from the client library is byte-identical to what it sent before. (Orders placed through the MCP tool always carry `market_hours` — the tool defaults it to `regular_hours` — matching what Robinhood's own client sends on every order.)
 
 Order writes resolve the symbol with `resolveInstrumentBySymbol()`, an **exact** match that refuses ambiguous tickers, never `findInstruments()[0]` — the first hit of a fuzzy `?query=` search can be a same-prefix or relisted/OTC duplicate. `reviewEquityOrder()` uses the same resolver, so a review and the order it authorises cannot resolve to different securities.
 
@@ -473,7 +487,7 @@ Order writes resolve the symbol with `resolveInstrumentBySymbol()`, an **exact**
 
 `market_hours` tags an order to a session: `regular_hours` (09:30–16:00 ET), `extended_hours` (pre/post-market), or `all_day_hours` (the 24 Hour Market). On the wire `extended_hours` is exactly `market_hours !== "regular_hours"`, so `orderStock()` derives the boolean from `marketHours` and throws if a caller passes both with contradictory values.
 
-Only limit orders execute outside regular hours — `orderStock()` rejects a market, stop, or trailing order tagged to a non-regular session before any network call (scoped to an explicit `marketHours`, so legacy `extendedHours` callers are untouched). Short sales are session-scoped: outside regular hours the API rejects them unless the session is named (`It's after market close. To place this short sell order, change your trading session to extended hours.`), so `orderStock()` always sends an explicit `market_hours` for `sell_short`. The `robinhood_place_stock_order` MCP tool makes `market_hours` **required** with no default — an order tagged to the wrong session silently queues for the next open rather than executing, which is a failure that looks like success. Because a required parameter the caller has to guess is no safer than a default, `robinhood_get_market_hours` ships alongside it: the agent can ask which session is live instead of inferring it from a local clock that is wrong across time zones, weekends, and holidays.
+Only limit orders execute outside regular hours — `orderStock()` rejects a market, stop, or trailing order tagged to a non-regular session before any network call (scoped to an explicit `marketHours`, so legacy `extendedHours` callers are untouched). Short sales are session-scoped: outside regular hours the API rejects them unless the session is named (`It's after market close. To place this short sell order, change your trading session to extended hours.`), so `orderStock()` always sends an explicit `market_hours` for `sell_short`. The `robinhood_place_equity_order` MCP tool defaults `market_hours` to `regular_hours`, as the official tool does. An order tagged to the wrong session silently queues for the next open rather than executing, so `robinhood_get_market_hours` ships alongside it: the agent can ask which session is live instead of inferring it from a local clock that is wrong across time zones, weekends, and holidays.
 
 `orderOption()` does not yet expose a session and is fixed to `regular_hours`.
 
@@ -511,7 +525,7 @@ Only limit orders execute outside regular hours — `orderStock()` rejects a mar
 | **EncryptedFileTokenStore for Docker** | AES-256-GCM encrypted file with key in env var or keychain. No need for an auth proxy sidecar. |
 | **No phoenix.robinhood.com** | TLS handshake fails. `api.robinhood.com` has equivalent data. |
 | **Unified order methods** | `orderStock()` with optional params vs 10 separate `orderBuyMarket()` etc. |
-| **`market_hours` required on the MCP tool, optional on the client** | The MCP tool is the agent-facing surface, where a defaulted session is a silent failure mode: an order tagged `regular_hours` after the close queues for the next open instead of executing, and looks placed. Requiring it also makes a stale caller that passes only the old `extended_hours` fail loudly on a missing parameter. The client library keeps `extendedHours` working so programmatic callers are not broken. |
+| **Official input schemas over fork-specific ones** | An agent that learned the official Robinhood Trading MCP calls this server with the same arguments. That includes the official defaults (`market_hours` = `regular_hours`, `time_in_force` = `gfd`); a parameter value the standard REST API cannot serve is rejected with a reason, never approximated. |
 | **Vitest over bun test** | Proper module isolation via worker processes. Critical for mocking. |
 | **Zod schemas** | Type API response shapes for TS consumers -- the client casts rather than `.parse()`s, so zero runtime overhead (caveat: an under-declared schema silently hides real response fields from the TS types without erroring). Opt-in `parseOne`/`parseArray` helpers in `src/client/http.ts` runtime-validate when a caller wants it. MCP tool-call parameters, by contrast, ARE runtime-validated via the same library. |
 | **ESM-only** | Bun is ESM-native, no CJS compatibility needed. |

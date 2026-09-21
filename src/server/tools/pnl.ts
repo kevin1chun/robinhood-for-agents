@@ -22,11 +22,11 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { RealizedPnlData, RealizedPnlTrade } from "../../client/index.js";
 import { bucketRealized, type Granularity } from "../../compute/realized-pnl.js";
-import { getAuthenticatedRh, structured, textError } from "./_helpers.js";
+import { getAuthenticatedRh, stringEnum, structured, textError } from "./_helpers.js";
 
 const READ_ONLY = { readOnlyHint: true } as const;
 
-const ASSET_CLASS = z.enum(["equity", "option", "crypto"]);
+const ASSET_CLASS = stringEnum(["equity", "option", "crypto"]);
 
 interface ResolvedWindow {
   start: string;
@@ -131,8 +131,7 @@ export function registerPnlTools(server: McpServer): void {
           .array(ASSET_CLASS)
           .optional()
           .describe("Filter to equity/crypto (option is accepted but not computed). Omit for all."),
-        span: z
-          .enum(["day", "week", "month", "3month", "year", "all"])
+        span: stringEnum(["day", "week", "month", "3month", "year", "all"])
           .optional()
           .describe("Preset window (default 3month). Mutually exclusive with start_date/end_date."),
         start_date: z
@@ -141,6 +140,10 @@ export function registerPnlTools(server: McpServer): void {
           .describe("Custom window start, YYYY-MM-DD (with end_date)."),
         end_date: z.string().optional().describe("Custom window end, YYYY-MM-DD, inclusive."),
         display_currency: z.string().optional().describe("Currency for amounts; USD only."),
+        timezone: z
+          .string()
+          .optional()
+          .describe("Accepted for parity; buckets are computed on UTC day boundaries."),
       },
       outputSchema: {
         account_number: z.string(),
@@ -204,14 +207,17 @@ export function registerPnlTools(server: McpServer): void {
         account_number: z
           .string()
           .describe("Brokerage account number (from robinhood_get_accounts)."),
-        span: z
-          .enum(["week", "month", "3month", "ytd", "all"])
+        span: stringEnum(["week", "month", "3month", "ytd", "all"])
           .optional()
           .describe("Preset window (default week)."),
         symbol: z
           .string()
           .optional()
           .describe("Optional single stock/crypto symbol filter (uppercased)."),
+        cursor: z
+          .string()
+          .optional()
+          .describe("Accepted for parity; results are complete, so next_cursor is always null."),
       },
       outputSchema: {
         account_number: z.string(),
