@@ -1,7 +1,7 @@
 /**
  * Equity tax-lot tool — `robinhood_get_equity_tax_lots`. Mirrors the official
- * Robinhood Trading MCP tool of the same name over standard REST
- * (`GET /tax_lots/open/{account}/{instrument}/`, standard-token readable).
+ * Robinhood Trading MCP tool of the same name over web REST
+ * (`GET /tax_lots/open/{account}/{instrument}/`, web-session-token readable).
  *
  * Fidelity / safety:
  *  - The symbol is resolved by EXACT match (a fuzzy first-hit would silently

@@ -1,4 +1,4 @@
-/** The 81 official tools, relayed to Robinhood's hosted MCP (agent mode). */
+/** The 81 official tools, relayed to Robinhood's hosted MCP (standard mode). */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -123,7 +123,7 @@ export function registerOfficialTools(
     {
       title: "Official MCP Login",
       description:
-        "Sign in to Robinhood's hosted MCP (agent.robinhood.com), which serves every tool in agent mode. Opens the default browser to Robinhood's sign-in; the user approves there. Needed once; nothing is typed through this tool.",
+        "Sign in to Robinhood's hosted MCP (agent.robinhood.com), which serves every tool in standard mode. Opens the default browser to Robinhood's sign-in; the user approves there. Needed once; nothing is typed through this tool.",
       inputSchema: {},
       outputSchema: { status: z.string() },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },

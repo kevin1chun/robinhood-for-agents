@@ -2,13 +2,13 @@
 
 ## Modes
 
-The server runs in one mode per process. **Standard** (entry `robinhood-for-agents`): Robinhood's web API under the Chrome session from `robinhood_browser_login`. **Agent** (entry `robinhood-agent`, `--mode agent`): every official tool relayed unchanged to Robinhood's hosted MCP under the credential from `robinhood_official_login`; orders reach the Agentic account only. In agent mode the official server answers, so the response shapes below (which describe standard mode) do not apply.
+The server runs in one mode per process. **Standard** (entry `robinhood-for-agents`, the default): every official tool relayed unchanged to Robinhood's hosted MCP under the credential from `robinhood_official_login`; orders reach the Agentic account only. In standard mode the official server answers, so the response shapes below (which describe web mode) do not apply. **Web** (entry `robinhood-web`, `--mode web`): Robinhood's web API under the Chrome session from `robinhood_browser_login`.
 
 | Mode | Tools |
 |---|---|
 | both | every tool in this file not listed below |
-| standard only | `robinhood_browser_login`, `robinhood_check_session`, `robinhood_get_account`, `robinhood_get_short_interest`, `robinhood_get_movers`, `robinhood_get_market_hours`, `robinhood_get_crypto_historicals` |
-| agent only | `robinhood_official_login` and the 29 under [Agent mode only](#agent-mode-only) |
+| web only | `robinhood_browser_login`, `robinhood_check_session`, `robinhood_get_account`, `robinhood_get_short_interest`, `robinhood_get_movers`, `robinhood_get_market_hours`, `robinhood_get_crypto_historicals` |
+| standard only | `robinhood_official_login` and the 29 under [Standard mode only](#standard-mode-only) |
 
 ## Auth
 
@@ -568,7 +568,7 @@ List your saved scanners. Empty when you have none.
 
 ## Realized P&L (computed)
 
-Read-only. Robinhood has **no realized-P&L REST endpoint** for a standard token, so these tools **compute** it: equity by independent **economic FIFO including fees** (matched from your order history — *not* Robinhood's booked/tax-adjusted number), crypto from Robinhood's native `gain_loss`. **Options are not included** (expirations/assignments aren't in the order history). Both tools require `account_number` (from `robinhood_get_accounts`) and fetch full order history, so they can be slow on large accounts. Always relay the result `note` — it carries the honesty caveats.
+Read-only. Robinhood has **no realized-P&L REST endpoint** for a web-session token, so these tools **compute** it: equity by independent **economic FIFO including fees** (matched from your order history — *not* Robinhood's booked/tax-adjusted number), crypto from Robinhood's native `gain_loss`. **Options are not included** (expirations/assignments aren't in the order history). Both tools require `account_number` (from `robinhood_get_accounts`) and fetch full order history, so they can be slow on large accounts. Always relay the result `note` — it carries the honesty caveats.
 
 ### robinhood_get_realized_pnl
 Bucketed realized gain over a window, plus totals. Params: `account_number` (required); `span` (`day`/`week`/`month`/`3month`/`year`/`all`, default `3month`) **or** `start_date`+`end_date` (YYYY-MM-DD); `asset_classes` (subset of `equity`/`crypto`; `option` accepted but not computed); `display_currency` (USD only); `timezone` (accepted; buckets use UTC day boundaries).
@@ -584,9 +584,9 @@ Per-trade realized P&L. Params: `account_number` (required); `span` (`week`/`mon
 
 Results are complete (`next_cursor` always null). For exact reconciliation against Robinhood's own figures, run `bun run pnl:harness` locally (keeps your account number off any transcript).
 
-## Agent mode only
+## Standard mode only
 
-These tools have no web endpoint, so they exist only in agent mode, where each call is relayed to `agent.robinhood.com/mcp/trading` and answered with the official server's result. Parameters, descriptions and annotations are Robinhood's own (`docs/official-mcp-tools.json`). Until `robinhood_official_login` has run once, every agent-mode tool answers an error naming it. Orders reach the Agentic account only; other accounts are read-only there. A throttle answers `RATE_LIMITED`; wait about 5 s before retrying.
+These tools have no web endpoint, so they exist only in standard mode, where each call is relayed to `agent.robinhood.com/mcp/trading` and answered with the official server's result. Parameters, descriptions and annotations are Robinhood's own (`docs/official-mcp-tools.json`). Until `robinhood_official_login` has run once, every standard-mode tool answers an error naming it. Orders reach the Agentic account only; other accounts are read-only there. A throttle answers `RATE_LIMITED`; wait about 5 s before retrying.
 
 ### robinhood_official_login
 Opens the default browser to Robinhood's sign-in for the hosted MCP; the user approves there. Needed once. **Parameters:** none. **Response:** `{ "status": "signed_in" }`. Waits up to 5 minutes for the browser; see the timeout note under `robinhood_browser_login`.

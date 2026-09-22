@@ -4,7 +4,7 @@
  *
  * WHY EMBEDDED (not fetched): the official Robinhood Trading MCP's
  * get_scanner_filter_specs is served by the gRPC-transcoded Beacon Scanner
- * service. Its filter-spec REST route is not reachable with a standard Bearer
+ * service. Its filter-spec REST route is not reachable with a web-session Bearer
  * token, and the raw beacon wire model (a bundled `supportedInputs` object,
  * camelCase) is structurally different from the flat, snake_case DTO the
  * official tool emits (value_type / unit_type / supported_lengths /

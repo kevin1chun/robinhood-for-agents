@@ -6,11 +6,13 @@ import { type AgentMeta, MCP_ENTRY } from "./types.js";
 
 function installMcp(binPath: string, mode: Mode): void {
   const entry = MCP_ENTRY[mode];
-  // Remove existing entry (ignore errors if not found)
-  try {
-    execFileSync("claude", ["mcp", "remove", entry], { stdio: "pipe" });
-  } catch {
-    // not found — fine
+  // pre-4.0 entry; it now runs --mode agent, which errors
+  for (const name of [entry, "robinhood-agent"]) {
+    try {
+      execFileSync("claude", ["mcp", "remove", name], { stdio: "pipe" });
+    } catch {
+      // not found — fine
+    }
   }
 
   execFileSync(

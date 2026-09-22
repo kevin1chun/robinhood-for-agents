@@ -496,7 +496,7 @@ The client returns **raw** scan objects. The MCP tool (`robinhood_get_scans`) ad
 
 ## Realized P&L Methods
 
-Read-only, **computed** — Robinhood has no realized-P&L REST endpoint for a standard token. `getRealizedPnl` returns the full computed dataset (all realized trades, not windowed); apply your own span/bucketing, or use the two MCP tools which window and bucket for you.
+Read-only, **computed** — Robinhood has no realized-P&L REST endpoint for a web-session token. `getRealizedPnl` returns the full computed dataset (all realized trades, not windowed); apply your own span/bucketing, or use the two MCP tools which window and bucket for you.
 
 ```typescript
 // Equity: independent economic FIFO incl. fees (NOT Robinhood's booked/tax number).

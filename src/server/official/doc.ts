@@ -8,7 +8,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 export type OfficialTool = Tool;
 
-export type ParityStatus = "same" | "renamed" | "new" | "agent-only";
+export type ParityStatus = "same" | "renamed" | "new" | "standard-only";
 
 /** Source layout is src/server/official/; the published build adds dist/ in front. */
 function read(file: string): string {

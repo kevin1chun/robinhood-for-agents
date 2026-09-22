@@ -5,16 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.1] - 2026-09-21
+## [4.0.0] - 2026-09-21
 
-Documentation only; no code, tools, or schemas changed.
+The modes were renamed and the default flipped: a server started without a flag now relays Robinhood's official hosted MCP instead of calling the web API, which changes behavior for every no-flag user, so this release is a major bump.
 
 ### Changed
 
-- **README rebuilt around a reader path** — intro → Quick start → Choosing a mode → Install → Sign in → What you can do → Tools → Placing orders → Client library → Docker and headless → Safety → Development. Quick start is the 60-second agent-mode setup (generate `ROBINHOOD_TOKEN_KEY`, register `robinhood-agent`, run `robinhood_official_login`); Choosing a mode recommends agent mode as the surface Robinhood supports and explains standard mode as the unofficial web-API path you pick for reach — every brokerage account and the client library.
-- **`docs/MODES.md`** is the single mode comparison (side-by-side table, per-mode setup chain, which doc covers which mode), and every other doc now opens with a scope banner naming the mode it describes.
-- **README `## Authentication` removed.** Token storage, lifetime and rotation live in `docs/SECURITY.md`; `restoreSession()`, the refresh paths, session health and the exception hierarchy in `docs/ARCHITECTURE.md`. Inbound links were repointed.
-- The tool table's collapsed agent-only row now lists all 29 agent-only tools (`robinhood_get_equity_analyst_ratings` was missing), matching `docs/official-mcp-tools.md#parity`.
+- **BREAKING: modes renamed.** `agent` → `standard` (the official hosted-MCP relay, now the default with no flag), `standard` → `web` (the web API, now `--mode web` / `ROBINHOOD_MODE=web`). `--mode agent` and `ROBINHOOD_MODE=agent` exit with a hint. Client entries: `robinhood-for-agents` is now standard, `robinhood-web` is web; `robinhood-agent` is retired and `install` removes it. Parity status `agent-only` → `standard-only`.
+- **README rebuilt around a reader path**, with a per-client Quick start (Claude Code, Codex, OpenClaw, Cursor, Antigravity, Hermes, other JSON clients) that registers standard mode in one command. The README `## Authentication` section is gone; its content lives in `docs/SECURITY.md` and `docs/ARCHITECTURE.md`.
+- **`docs/MODES.md`** is the single mode comparison, and every other doc opens with a scope banner naming its mode. The tool table's collapsed standard-only row lists all 29 tools.
 - Added a Buy Me a Coffee badge and a short note from the maintainer.
 
 ## [3.0.0] - 2026-09-18
@@ -255,7 +254,7 @@ The MCP tools take the official Robinhood Trading MCP's names and input schemas 
 - Safety controls: blocked fund transfers, blocked bulk cancels, explicit order parameters
 - Support for Claude Code, Codex, and OpenClaw agents
 
-[3.0.1]: https://github.com/kevin1chun/robinhood-for-agents/compare/v3.0.0...v3.0.1
+[4.0.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v3.0.0...v4.0.0
 [1.1.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/kevin1chun/robinhood-for-agents/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.8.0...v1.0.0

@@ -171,7 +171,7 @@ describe("signIn callback", () => {
   });
 });
 
-describe("the agent-mode credential file", () => {
+describe("the standard-mode credential file", () => {
   const dir = mkdtempSync(join(tmpdir(), "rfa-official-"));
   const FAKE_KEY = Buffer.alloc(32, 7).toString("base64");
   afterEach(() => vi.unstubAllEnvs());

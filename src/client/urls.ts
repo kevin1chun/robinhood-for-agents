@@ -9,7 +9,7 @@ export const API_BASE = "https://api.robinhood.com";
 export const NUMMUS_BASE = "https://nummus.robinhood.com";
 // bonfire: order checks/warnings, unified portfolio, tax_info.
 // dora: news feed + similar instruments (research). Both reached with the
-// same standard Bearer token as api/nummus. `ceres/v1`, `discovery`, `pluto`,
+// same web-session Bearer token as api/nummus. `ceres/v1`, `discovery`, `pluto`,
 // `marketdata` and `beacon` (scanners) are path prefixes on API_BASE, so they
 // need no new origin.
 export const BONFIRE_BASE = "https://bonfire.robinhood.com";
@@ -237,7 +237,7 @@ export function optionAggregatePositions(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Order review (pre-trade simulation — read-only, standard-token GETs)
+// Order review (pre-trade simulation — read-only, web-session-token GETs)
 // ---------------------------------------------------------------------------
 
 /**
@@ -429,7 +429,7 @@ export function watchlistItemQuickAdd(): string {
 /**
  * Open tax lots for one equity holding — `GET /tax_lots/open/{account}/{instrument}/`.
  * Each lot is a separate acquisition with its own quantity, cost basis, acquisition
- * date, and long/short-term status. Paginated; standard-token readable.
+ * date, and long/short-term status. Paginated; web-session-token readable.
  */
 export function equityTaxLotsOpen(accountNumber: string, instrumentId: string): string {
   return `${API_BASE}/tax_lots/open/${safeSegment(accountNumber, "accountNumber")}/${safeSegment(instrumentId, "instrumentId")}/`;
@@ -444,7 +444,7 @@ export function equityTaxLotsOpen(accountNumber: string, instrumentId: string): 
  * Scanner service: `GET api.robinhood.com/beacon/scans/` → `{scans: [...]}`
  * (camelCase wire fields), empty `{scans: []}` when the user has none. Takes no
  * query params. The filter-spec catalog that powers scan-building is NOT a live
- * route reachable with a standard token — it's served from an embedded capture
+ * route reachable with a web-session token — it's served from an embedded capture
  * (see `scanner-filter-specs.ts`).
  */
 export function beaconScans(): string {

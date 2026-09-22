@@ -8,53 +8,44 @@
 
 An MCP server that lets your AI agent read and trade your Robinhood account, in one of two modes:
 
-- **Agent mode (recommended):** Robinhood's official hosted Trading MCP, 82 tools; orders reach your Agentic account.
-- **Standard mode:** the unofficial web API robinhood.com uses, 59 tools, every brokerage account.
+- **Standard mode (default):** Robinhood's official hosted Trading MCP, 82 tools; orders reach your Agentic account.
+- **Web mode:** the unofficial web API robinhood.com uses, 59 tools, every brokerage account.
 
 Also included: a TypeScript client library (82 async methods) and a trading skill for Claude Code and OpenClaw. Works with Claude Code, Codex, Cursor, Antigravity, Hermes, and any other MCP client; OpenClaw uses the skill.
 
 ## Quick start
 
-1. Generate `ROBINHOOD_TOKEN_KEY`, the key that encrypts the agent-mode credential:
+1. Generate `ROBINHOOD_TOKEN_KEY`, the key that encrypts the standard-mode credential:
 
    ```bash
    openssl rand -base64 32
    ```
 
-2. Register the server with your client. All need [Bun](https://bun.sh/) v1.3+.
+2. Register the server with your client. All need [Bun](https://bun.sh/) v1.3+. Standard mode is the default; `robinhood-web` is the optional web-mode entry.
 
    <details>
    <summary>Claude Code</summary>
 
    ```bash
-   # Agent mode (recommended) — the entry carries the key
-   claude mcp add -s user robinhood-agent -e ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents --mode agent
-   # Standard mode, global (available in all projects)
-   claude mcp add -s user robinhood-for-agents -- bunx robinhood-for-agents
-   # Skills, per-project and optional
-   cd your-project && npx robinhood-for-agents install --skills
+   claude mcp add -s user robinhood-for-agents -e ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents
+   claude mcp add -s user robinhood-web -- bunx robinhood-for-agents --mode web   # optional
+   cd your-project && npx robinhood-for-agents install --skills                   # optional per-project skills
    ```
-
-   From a source checkout, use `-- bun run /path/to/checkout/bin/robinhood-for-agents.ts` (plus `--mode agent`) instead.
    </details>
 
    <details>
    <summary>Codex</summary>
 
    ```bash
-   # Agent mode (recommended) — the entry carries the key
-   codex mcp add robinhood-agent --env ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents --mode agent
-   # Standard mode
-   codex mcp add robinhood-for-agents -- bunx robinhood-for-agents
+   codex mcp add robinhood-for-agents --env ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents
+   codex mcp add robinhood-web -- bunx robinhood-for-agents --mode web   # optional
    ```
-
-   From a source checkout, use `-- bun run /path/to/checkout/bin/robinhood-for-agents.ts` instead.
    </details>
 
    <details>
    <summary>OpenClaw</summary>
 
-   Standard mode only: the skill calls the client library through `bun`, with no MCP server.
+   Web mode only: the skill calls the client library through `bun`, with no MCP server.
 
    ```bash
    clawhub install robinhood-for-agents            # via ClawHub (recommended)
@@ -65,110 +56,62 @@ Also included: a TypeScript client library (82 async methods) and a trading skil
    </details>
 
    <details>
-   <summary>Cursor</summary>
+   <summary>Cursor, Antigravity, Claude Desktop, other JSON clients</summary>
 
-   Add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project), keeping the entries for the modes you use:
+   Add to your client's config file, keeping the entries for the modes you use:
 
-   ```json
-   {
-     "mcpServers": {
-       "robinhood-agent": {
-         "command": "bunx",
-         "args": ["robinhood-for-agents", "--mode", "agent"],
-         "env": { "ROBINHOOD_TOKEN_KEY": "<base64 key>" }
-       },
-       "robinhood-for-agents": {
-         "command": "bunx",
-         "args": ["robinhood-for-agents"]
-       }
-     }
-   }
-   ```
-
-   From a source checkout, use `"command": "bun", "args": ["run", "/absolute/path/to/checkout/bin/robinhood-for-agents.ts"]` (plus `"--mode", "agent"`) instead.
-   </details>
-
-   <details>
-   <summary>Antigravity</summary>
-
-   Add to `~/.gemini/config/mcp_config.json` (global, shared by the IDE and CLI) or `.agents/mcp_config.json` (workspace), keeping the entries for the modes you use. In the IDE: agent panel **…** → **MCP Servers** → **Manage MCP Servers** → **View raw config**.
+   - Cursor: `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project).
+   - Antigravity: `~/.gemini/config/mcp_config.json` (global, shared by the IDE and CLI) or `.agents/mcp_config.json` (workspace); in the IDE, agent panel **…** → **MCP Servers** → **Manage MCP Servers** → **View raw config**.
+   - Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`.
 
    ```json
    {
      "mcpServers": {
-       "robinhood-agent": {
-         "command": "bunx",
-         "args": ["robinhood-for-agents", "--mode", "agent"],
-         "env": { "ROBINHOOD_TOKEN_KEY": "<base64 key>" }
-       },
        "robinhood-for-agents": {
          "command": "bunx",
-         "args": ["robinhood-for-agents"]
+         "args": ["robinhood-for-agents"],
+         "env": { "ROBINHOOD_TOKEN_KEY": "<base64 key>" }
+       },
+       "robinhood-web": {
+         "command": "bunx",
+         "args": ["robinhood-for-agents", "--mode", "web"]
        }
      }
    }
    ```
-
-   From a source checkout, use `"command": "bun", "args": ["run", "/absolute/path/to/checkout/bin/robinhood-for-agents.ts"]` (plus `"--mode", "agent"`) instead.
    </details>
 
    <details>
    <summary>Hermes</summary>
 
-   Add to `~/.hermes/config.yaml`, keeping the entries for the modes you use:
+   Add to `~/.hermes/config.yaml`, keeping the entries for the modes you use, then run `/reload-mcp`:
 
    ```yaml
    mcp_servers:
-     robinhood-agent:              # agent mode (recommended)
-       command: "bunx"
-       args: ["robinhood-for-agents", "--mode", "agent"]
-       env:
-         ROBINHOOD_TOKEN_KEY: "<base64 key>"
-     robinhood-for-agents:         # standard mode
+     robinhood-for-agents:
        command: "bunx"
        args: ["robinhood-for-agents"]
+       env:
+         ROBINHOOD_TOKEN_KEY: "<base64 key>"
+     robinhood-web:
+       command: "bunx"
+       args: ["robinhood-for-agents", "--mode", "web"]
    ```
-
-   From a source checkout, use `command: "bun"` and `args: ["run", "/absolute/path/to/checkout/bin/robinhood-for-agents.ts"]` (plus `"--mode", "agent"`) instead. Run `/reload-mcp` rather than restarting Hermes.
    </details>
 
-   <details>
-   <summary>Other MCP clients (Claude Desktop, etc.)</summary>
+   From a source checkout, replace `bunx robinhood-for-agents` with `bun run /path/to/checkout/bin/robinhood-for-agents.ts`.
 
-   Add to your client's config (Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`), keeping the entries for the modes you use:
-
-   ```json
-   {
-     "mcpServers": {
-       "robinhood-agent": {
-         "command": "bunx",
-         "args": ["robinhood-for-agents", "--mode", "agent"],
-         "env": { "ROBINHOOD_TOKEN_KEY": "<base64 key>" }
-       },
-       "robinhood-for-agents": {
-         "command": "bunx",
-         "args": ["robinhood-for-agents"]
-       }
-     }
-   }
-   ```
-
-   From a source checkout, use `"command": "bun", "args": ["run", "/absolute/path/to/checkout/bin/robinhood-for-agents.ts"]` (plus `"--mode", "agent"`) instead.
-   </details>
-
-3. Restart the client, ask your agent to run `robinhood_official_login`, and approve once in the browser. Then prompt it: "show my portfolio".
-
-The binary still defaults to standard, so agent mode needs `--mode agent` or `ROBINHOOD_MODE=agent`; without `ROBINHOOD_TOKEN_KEY` every agent-mode tool answers an error saying so.
+3. Restart the client, ask your agent to run `robinhood_official_login`, and approve once in the browser. Then prompt it: "show my portfolio". Without `ROBINHOOD_TOKEN_KEY`, every standard-mode tool answers an error saying so.
 
 ## Choosing a mode
 
-Use agent mode unless you need something only standard mode has. It is the surface Robinhood supports for agents: the 81 official tools, with Robinhood's own titles, descriptions, schemas, and annotations, each call relayed unchanged to `agent.robinhood.com/mcp/trading`. Orders reach your Agentic account only; other accounts are read-only. Standard mode trades that for reach: it calls the web API robinhood.com itself uses, serves every brokerage account, and backs the client library, but Robinhood does not sanction it for agents.
+Use standard mode unless you need something only web mode has. It is the surface Robinhood supports for agents: the 81 official tools, with Robinhood's own titles, descriptions, schemas, and annotations, each call relayed unchanged to `agent.robinhood.com/mcp/trading`. Orders reach your Agentic account only; other accounts are read-only. Web mode trades that for reach: it calls the web API robinhood.com itself uses, serves every brokerage account, and backs the client library, but Robinhood does not sanction it for agents.
 
-29 tools exist only in agent mode, 7 only in standard mode; the Mode column in [Tools](#tools) says which, and [docs/MODES.md](docs/MODES.md) has the full comparison. To run both, register both entries. Tool names match, so your agent tells them apart by entry; the credentials are separate.
+29 tools exist only in standard mode, 7 only in web mode; the Mode column in [Tools](#tools) says which, and [docs/MODES.md](docs/MODES.md) has the full comparison. To run both, register both entries, `robinhood-for-agents` and `robinhood-web`. Tool names match, so your agent tells them apart by entry; the credentials are separate.
 
 ## Install
 
-Prerequisites: [Bun](https://bun.sh/) v1.3+ and a Robinhood account. Agent mode needs `ROBINHOOD_TOKEN_KEY`, and its sign-in opens your browser with the macOS `open` command. Standard mode needs Google Chrome for login (`playwright-core`, `channel: "chrome"`; no bundled browser, Brave/Chromium fallback, or `BROWSER_PATH` override).
+Prerequisites: [Bun](https://bun.sh/) v1.3+ and a Robinhood account. Standard mode needs `ROBINHOOD_TOKEN_KEY`, and its sign-in opens your browser with the macOS `open` command. Web mode needs Google Chrome for login (`playwright-core`, `channel: "chrome"`; no bundled browser, Brave/Chromium fallback, or `BROWSER_PATH` override).
 
 ### Guided setup
 
@@ -177,7 +120,7 @@ npx robinhood-for-agents onboard
 npx robinhood-for-agents onboard --agent claude-code   # or codex, openclaw
 ```
 
-It asks for your agent (and, for Claude Code and Codex, the mode), registers the server, and installs skills where supported. In standard mode it also runs the Chrome login and asks whether the agent runs locally or in Docker. It does not set `ROBINHOOD_TOKEN_KEY`, so for agent mode use the [Quick start](#quick-start) command instead. `npx robinhood-for-agents install --mode agent` has the same gap; if you used it, run `claude mcp remove robinhood-agent` first.
+It asks for your agent (and, for Claude Code and Codex, the mode), registers the server, and installs skills where supported. In web mode it also runs the Chrome login and asks whether the agent runs locally or in Docker. Neither `onboard` nor `install` sets `ROBINHOOD_TOKEN_KEY`, so for standard mode use the [Quick start](#quick-start) command.
 
 ### From source
 
@@ -186,7 +129,7 @@ git clone https://github.com/kevin1chun/robinhood-for-agents.git
 cd robinhood-for-agents
 bun install
 bun run onboard
-bun bin/robinhood-for-agents.ts --mode agent   # or without the flag for standard mode
+bun bin/robinhood-for-agents.ts   # standard mode; add --mode web for web mode
 ```
 
 **What each client gets:**
@@ -201,8 +144,8 @@ bun bin/robinhood-for-agents.ts --mode agent   # or without the flag for standar
 
 ## Sign in
 
-- **Agent:** ask your agent to run `robinhood_official_login`, then approve once in the browser it opens. The browser must reach the server's `127.0.0.1` callback. Until then, every agent-mode tool answers an error naming the login tool. The credential is stored as `official-mcp.enc` (AES-256-GCM under `ROBINHOOD_TOKEN_KEY`), never in the keychain.
-- **Standard:** say "setup robinhood" or call `robinhood_browser_login`, then log in to Robinhood in Chrome with your credentials and MFA. The token capture is a passive network intercept that never touches the page. The session is cached in the OS keychain (or the encrypted file named by `ROBINHOOD_TOKENS_FILE`) and renews a day before expiry and on any 401; a long idle gap lapses it and needs a new login. `robinhood_check_session` probes the API and answers `logged_in`, `expired`, `unknown`, or `not_authenticated`.
+- **Standard:** ask your agent to run `robinhood_official_login`, then approve once in the browser it opens. The browser must reach the server's `127.0.0.1` callback. Until then, every standard-mode tool answers an error naming the login tool. The credential is stored as `official-mcp.enc` (AES-256-GCM under `ROBINHOOD_TOKEN_KEY`), never in the keychain.
+- **Web:** say "setup robinhood" or call `robinhood_browser_login`, then log in to Robinhood in Chrome with your credentials and MFA. The token capture is a passive network intercept that never touches the page. The session is cached in the OS keychain (or the encrypted file named by `ROBINHOOD_TOKENS_FILE`) and renews a day before expiry and on any 401; a long idle gap lapses it and needs a new login. `robinhood_check_session` probes the API and answers `logged_in`, `expired`, `unknown`, or `not_authenticated`.
 - Storage, rotation, and failure modes: [docs/SECURITY.md](docs/SECURITY.md). Mechanics: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#authentication).
 
 ## What you can do
@@ -211,7 +154,7 @@ bun bin/robinhood-for-agents.ts --mode agent   # or without the flag for standar
 
 ![SPX options chain with greeks and order summary](docs/images/spx-options-example.png)
 
-The `robinhood-for-agents` skill (Claude Code and OpenClaw; `clawhub install robinhood-for-agents` from [ClawHub](https://clawhub.ai/kevin1chun/robinhood-for-agents)) adds guided workflows. With Claude Code it drives whichever MCP entry you registered, so agent-only tools need `robinhood-agent`; standalone it uses the client library, which is standard mode only.
+The `robinhood-for-agents` skill (Claude Code and OpenClaw; `clawhub install robinhood-for-agents` from [ClawHub](https://clawhub.ai/kevin1chun/robinhood-for-agents)) adds guided workflows. With Claude Code it drives whichever MCP entry you registered, so standard-only tools need `robinhood-for-agents`; standalone it uses the client library, which is web mode only.
 
 | Domain | Example Triggers |
 |--------|-----------------|
@@ -225,14 +168,14 @@ In `skills/robinhood-for-agents/`, `SKILL.md` routes to domain files (`portfolio
 
 ## Tools
 
-Names and input schemas are the official ones, prefixed `robinhood_` ([parity table](docs/official-mcp-tools.md#parity)). In agent mode each tool also carries Robinhood's title, description, output schema, and annotations verbatim from [`docs/official-mcp-tools.json`](docs/official-mcp-tools.json). The hosted server's rate limit: [measured here](docs/official-mcp-tools.md#measured-rate-limit). **Mode**: `agent` or `standard` = only in that mode; `both` = web API in standard mode, relayed in agent mode.
+Names and input schemas are the official ones, prefixed `robinhood_` ([parity table](docs/official-mcp-tools.md#parity)). In standard mode each tool also carries Robinhood's title, description, output schema, and annotations verbatim from [`docs/official-mcp-tools.json`](docs/official-mcp-tools.json). The hosted server's rate limit: [measured here](docs/official-mcp-tools.md#measured-rate-limit). **Mode**: `standard` or `web` = only in that mode; `both` = both modes.
 
 | Tool | Mode | Description |
 |------|------|-------------|
-| `robinhood_browser_login` | standard | Authenticate via Chrome browser |
-| `robinhood_check_session` | standard | Probe the cached session: `logged_in` / `expired` / `unknown` / `not_authenticated` |
+| `robinhood_browser_login` | web | Authenticate via Chrome browser |
+| `robinhood_check_session` | web | Probe the cached session: `logged_in` / `expired` / `unknown` / `not_authenticated` |
 | `robinhood_get_accounts` | both | List all brokerage accounts |
-| `robinhood_get_account` | standard | Account details and profile |
+| `robinhood_get_account` | web | Account details and profile |
 | `robinhood_get_portfolio` | both | Portfolio: positions, P&L, equity, cash, buying power |
 | `robinhood_get_equity_positions` | both | Raw equity positions (shares, avg price) |
 | `robinhood_get_equity_tax_lots` | both | Open tax lots for one equity holding (cost basis, term, open date) |
@@ -240,15 +183,15 @@ Names and input schemas are the official ones, prefixed `robinhood_` ([parity ta
 | `robinhood_get_equity_fundamentals` | both | Fundamentals: float, shares outstanding, valuation, profile |
 | `robinhood_get_equity_historicals` | both | OHLCV bars over a time range |
 | `robinhood_get_equity_technical_indicators` | both | RSI, MACD, Bollinger, moving averages, ATR, VWAP, … (computed) |
-| `robinhood_get_short_interest` | standard | Daily short-interest estimate (% of float, with bounds) |
+| `robinhood_get_short_interest` | web | Daily short-interest estimate (% of float, with bounds) |
 | `robinhood_get_equity_price_book` | both | Level-2 price book (bid/ask depth) |
 | `robinhood_get_equity_tradability` | both | Tradability flags (fractional, short-selling, per-account type) |
 | `robinhood_get_equity_news` | both | News and analyst ratings |
 | `robinhood_get_earnings_results` | both | Earnings for a symbol (EPS estimate vs. actual) |
 | `robinhood_get_earnings_calendar` | both | Market-wide earnings calendar for a day window |
 | `robinhood_search` | both | Search stocks/ETFs, crypto pairs, or indexes |
-| `robinhood_get_movers` | standard | Market movers and popular stocks |
-| `robinhood_get_market_hours` | standard | Market hours for a date: is it a trading day, when each session opens/closes |
+| `robinhood_get_movers` | web | Market movers and popular stocks |
+| `robinhood_get_market_hours` | web | Market hours for a date: is it a trading day, when each session opens/closes |
 | `robinhood_get_indexes` | both | Market index instruments (SPX, NDX, VIX, …) with ids |
 | `robinhood_get_index_quotes` | both | Current values for index instrument ids |
 | `robinhood_get_option_chains` | both | Option chains for an underlying (expirations, chain ids) |
@@ -259,7 +202,7 @@ Names and input schemas are the official ones, prefixed `robinhood_` ([parity ta
 | `robinhood_get_option_historicals` | both | OHLC bars for option contracts |
 | `robinhood_get_crypto_quotes` | both | Crypto quotes |
 | `robinhood_get_crypto_positions` | both | Crypto holdings |
-| `robinhood_get_crypto_historicals` | standard | Crypto OHLCV history |
+| `robinhood_get_crypto_historicals` | web | Crypto OHLCV history |
 | `robinhood_get_currency_pairs` | both | Tradable crypto pairs |
 | `robinhood_review_equity_order` | both | Simulate a stock order before placing (price-collar check, live quote) |
 | `robinhood_review_option_order` | both | Simulate an option order before placing (per-leg data, collateral) |
@@ -288,12 +231,12 @@ Names and input schemas are the official ones, prefixed `robinhood_` ([parity ta
 | `robinhood_get_scanner_filter_specs` | both | Filter vocabulary for building scans (RSI/MACD/fundamentals/…) |
 | `robinhood_get_realized_pnl` | both | Realized P&L over a window, bucketed (computed FIFO; equity + crypto) |
 | `robinhood_get_pnl_trade_history` | both | Per-trade realized P&L (computed FIFO; equity + crypto) |
-| `robinhood_official_login` | agent | Sign in to Robinhood's hosted MCP (browser) |
-| `robinhood_cancel_advanced_order`, `robinhood_cancel_option_exercise`, `robinhood_create_alert`, `robinhood_create_scan`, `robinhood_delete_alert`, `robinhood_exercise_option`, `robinhood_get_advanced_orders`, `robinhood_get_alert_log`, `robinhood_get_alerts`, `robinhood_get_crypto_account_onboarding_info`, `robinhood_get_equity_analyst_ratings`, `robinhood_get_financials`, `robinhood_get_index_historicals`, `robinhood_get_limited_margin_upgrade_info`, `robinhood_get_option_level_upgrade_info`, `robinhood_get_politician_trades`, `robinhood_get_scanner_datapoints`, `robinhood_get_sec_filing`, `robinhood_get_sec_filing_facts`, `robinhood_get_sec_filing_facts_catalog`, `robinhood_get_sec_filing_index`, `robinhood_mark_alerts_read`, `robinhood_place_advanced_order`, `robinhood_preview_scan`, `robinhood_review_advanced_order`, `robinhood_run_scan`, `robinhood_update_alert`, `robinhood_update_scan_config`, `robinhood_update_scan_filters` | agent | No web endpoint: advanced (OCO) orders, option exercise, alerts, scanner writes and datapoints, financials, SEC filings, politician trades, index historicals, onboarding and upgrade info |
+| `robinhood_official_login` | standard | Sign in to Robinhood's hosted MCP (browser) |
+| `robinhood_cancel_advanced_order`, `robinhood_cancel_option_exercise`, `robinhood_create_alert`, `robinhood_create_scan`, `robinhood_delete_alert`, `robinhood_exercise_option`, `robinhood_get_advanced_orders`, `robinhood_get_alert_log`, `robinhood_get_alerts`, `robinhood_get_crypto_account_onboarding_info`, `robinhood_get_equity_analyst_ratings`, `robinhood_get_financials`, `robinhood_get_index_historicals`, `robinhood_get_limited_margin_upgrade_info`, `robinhood_get_option_level_upgrade_info`, `robinhood_get_politician_trades`, `robinhood_get_scanner_datapoints`, `robinhood_get_sec_filing`, `robinhood_get_sec_filing_facts`, `robinhood_get_sec_filing_facts_catalog`, `robinhood_get_sec_filing_index`, `robinhood_mark_alerts_read`, `robinhood_place_advanced_order`, `robinhood_preview_scan`, `robinhood_review_advanced_order`, `robinhood_run_scan`, `robinhood_update_alert`, `robinhood_update_scan_config`, `robinhood_update_scan_filters` | standard | No web endpoint: advanced (OCO) orders, option exercise, alerts, scanner writes and datapoints, financials, SEC filings, politician trades, index historicals, onboarding and upgrade info |
 
 ## Placing orders
 
-Both modes run **review → confirm → place**. `robinhood_review_equity_order` simulates the order (live quote plus Robinhood's price collar) and places nothing. Show the result, get explicit confirmation, then call `robinhood_place_equity_order`. The client-side checks below run in standard mode only; agent mode relays the call for Robinhood to validate.
+Both modes run **review → confirm → place**. `robinhood_review_equity_order` simulates the order (live quote plus Robinhood's price collar) and places nothing. Show the result, get explicit confirmation, then call `robinhood_place_equity_order`. The client-side checks below run in web mode only; standard mode relays the call for Robinhood to validate.
 
 **Side** — `buy`, `sell`, or `sell_short`:
 
@@ -328,14 +271,14 @@ const quotes = await client.getQuotes("AAPL");
 const portfolio = await client.buildHoldings();
 ```
 
-Standard mode only; there is no client-library path to the hosted MCP. All 82 methods are async, and account-scoped ones take `accountNumber`. Reference, including `EncryptedFileTokenStore` and direct-`accessToken` construction: [`client-api.md`](skills/robinhood-for-agents/client-api.md).
+Web mode only; there is no client-library path to the hosted MCP. All 82 methods are async, and account-scoped ones take `accountNumber`. Reference, including `EncryptedFileTokenStore` and direct-`accessToken` construction: [`client-api.md`](skills/robinhood-for-agents/client-api.md).
 
 ## Docker and headless
 
 Without a keychain or browser, both modes keep their credential in an encrypted file under `ROBINHOOD_TOKEN_KEY` and sign in on the host.
 
-- **Agent:** `official-mcp.enc` lives beside `ROBINHOOD_TOKENS_FILE`, so mount the directory, not the file, and set `ROBINHOOD_MODE=agent` ([docs/DOCKER.md](docs/DOCKER.md#agent-mode)).
-- **Standard:** run `npx robinhood-for-agents onboard` on the host and pick "Docker container / remote host". It exports `./tokens.enc`, copies the key to the clipboard, and prints the env vars ([docs/DOCKER.md](docs/DOCKER.md#standard-mode)).
+- **Standard:** `official-mcp.enc` lives beside `ROBINHOOD_TOKENS_FILE`, so mount the directory, not the file ([docs/DOCKER.md](docs/DOCKER.md#standard-mode)).
+- **Web:** run `npx robinhood-for-agents onboard` on the host and pick "Docker container / remote host". It exports `./tokens.enc`, copies the key to the clipboard, and prints the env vars, including `ROBINHOOD_MODE=web` ([docs/DOCKER.md](docs/DOCKER.md#web-mode)).
 
 Keep the mount read-write and use one process per token file: refresh tokens are single-use, and a failed write-back logs `CRITICAL` to stderr and strands the container on restart. Encryption stops casual disk access, not an agent with shell access that can read the key, so run only agents you trust ([docs/SECURITY.md](docs/SECURITY.md)).
 
@@ -346,8 +289,8 @@ Keep the mount read-write and use one process per token file: refresh tokens are
 - Account, symbol, side, and order type are explicit; `time_in_force` and `market_hours` default to `gfd` and `regular_hours`, as in the official tools.
 - A short needs the explicit `sell_short` side, so a mis-parsed "sell" can never open one.
 - Order writes resolve the symbol by exact match, never a fuzzy search.
-- Agent-mode orders are relayed to Robinhood's hosted MCP and reach the Agentic account only.
-- Standard-mode tokens live in the OS keychain or an AES-256-GCM file; the agent-mode credential only in an encrypted file.
+- Standard-mode orders are relayed to Robinhood's hosted MCP and reach the Agentic account only.
+- The standard-mode credential lives only in an encrypted file; web-mode tokens live in the OS keychain or an AES-256-GCM file.
 - No real PII in this repo; examples use placeholders like `"ACCOUNT_ID"`.
 - Risk matrix: [docs/ACCESS_CONTROLS.md](docs/ACCESS_CONTROLS.md). Threat model: [docs/SECURITY.md](docs/SECURITY.md). Multi-agent identity and gateway auth: [docs/AGENT-IDENTITY.md](docs/AGENT-IDENTITY.md), [docs/GATEWAY-AUTH.md](docs/GATEWAY-AUTH.md).
 

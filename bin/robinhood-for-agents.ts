@@ -73,12 +73,12 @@ if (args[0] === "onboard" || args[0] === "setup") {
 
 Usage:
   robinhood-for-agents                  Start the MCP server (stdio transport)
-  robinhood-for-agents --mode agent|standard   Start the MCP server (default standard; or ROBINHOOD_MODE)
+  robinhood-for-agents --mode standard|web   Start the MCP server (default standard; or ROBINHOOD_MODE)
   robinhood-for-agents onboard          Interactive setup TUI (all agents)
   robinhood-for-agents onboard --agent claude-code|openclaw|codex
   robinhood-for-agents install          Install MCP server config + skills (Claude Code)
   robinhood-for-agents install --mcp    Install MCP server config only
-  robinhood-for-agents install --mode agent  Register the agent-mode server as 'robinhood-agent'
+  robinhood-for-agents install --mode web    Register the web-mode server as 'robinhood-web'
   robinhood-for-agents install --skills Install Claude Code skills only
   robinhood-for-agents install --agent openclaw  Install for a specific agent
   robinhood-for-agents --help           Show this help message`);
