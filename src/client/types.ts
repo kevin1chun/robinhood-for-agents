@@ -1256,7 +1256,7 @@ export type CryptoOrder = z.infer<typeof CryptoOrderSchema>;
 
 // ---------------------------------------------------------------------------
 // Realized P&L (Phase 2) — COMPUTED client-side, not an API response shape.
-// Equity trades are matched FIFO from order history (no standard-token REST
+// Equity trades are matched FIFO from order history (no web-session-token REST
 // endpoint exists); crypto trades reuse the native `gain_loss` on nummus orders.
 // These are plain interfaces (computed), not Zod-validated wire schemas.
 // ---------------------------------------------------------------------------
@@ -1521,7 +1521,7 @@ export type TaxLot = z.infer<typeof TaxLotSchema>;
  *
  * The catalog is account-agnostic and static; we serve it from an embedded
  * capture (see `scanner-filter-specs.ts`) rather than a live read, because the
- * Beacon filter-spec REST route isn't reachable with a standard token and its
+ * Beacon filter-spec REST route isn't reachable with a web-session token and its
  * raw wire shape differs from this DTO. `.catchall` tolerates any field
  * Robinhood may add so a future spec variant still types cleanly.
  */

@@ -5,7 +5,7 @@
  * SIMULATION that places NOTHING. They are the "review" half of the
  * review → show-user → place two-step gate.
  *
- * Reimplemented over read-only, standard-token GETs (the app's own order-preview
+ * Reimplemented over read-only, web-session-token GETs (the app's own order-preview
  * preflight: `order_checks/presubmit_data`, options `collateral`) plus a live
  * quote — NOT the agentic-account-only order-checks POST. Read-only.
  *
@@ -19,7 +19,7 @@
  *    and `not_evaluated_checks` lists what could not — so an empty `order_checks`
  *    is never read as a blanket "all clear".
  *  - Checks Robinhood computes server-side that are NOT reproducible from a
- *    standard token (priceband, day-trade suitability, killswitches, order-type
+ *    web-session token (priceband, day-trade suitability, killswitches, order-type
  *    selector) are NOT emitted — they are named in `not_evaluated_checks`.
  *  - `market_data_disclosure` is returned null (Robinhood renders it MCP-side).
  *  - Account identifiers read from response bodies are scrubbed; the only
@@ -96,7 +96,7 @@ export function registerReviewTools(server: McpServer): void {
               ? "order_checks is {} because the price collar ran and found no problem (see evaluated_checks). This is NOT a blanket approval — only the price collar was reproduced."
               : "order_checks is {} but the price collar could NOT be evaluated (see not_evaluated_checks) — do not read this as 'all clear'.",
           "Only the price collar is reproduced. Robinhood's server-side priceband, day-trade suitability, killswitch, and short-eligibility checks are NOT reproduced.",
-          "market_data_disclosure is null (Robinhood renders it in its own MCP, not reproducible from a standard token).",
+          "market_data_disclosure is null (Robinhood renders it in its own MCP, not reproducible from a web-session token).",
           "TOCTOU: the quote and thresholds can move — if quote_timestamp is stale by the time you place, re-review first.",
         ];
         if (review.type === "market") {

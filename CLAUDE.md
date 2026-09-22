@@ -4,7 +4,7 @@ AI-native Robinhood trading interface — MCP server + TypeScript client library
 
 ## Project Structure
 - `src/client/` — Robinhood API client (82 async methods)
-- `src/server/` — MCP server, one mode per process: standard (59 tools, `src/server/tools/`) or agent (82 tools, `src/server/official/`); official tools: `docs/official-mcp-tools.json` (the hosted server's tools/list, `bun run refresh-official-tools`); parity table: `docs/official-mcp-tools.md`
+- `src/server/` — MCP server, one mode per process: standard (82 tools, `src/server/official/`, the default) or web (59 tools, `src/server/tools/`); official tools: `docs/official-mcp-tools.json` (the hosted server's tools/list, `bun run refresh-official-tools`); parity table: `docs/official-mcp-tools.md`
 - `bin/` — CLI entry point (`robinhood-for-agents`)
 - `skills/` — Claude Code skills for interactive use
 
@@ -21,11 +21,11 @@ AI-native Robinhood trading interface — MCP server + TypeScript client library
 ```bash
 bun install
 bun bin/robinhood-for-agents.ts                # standard mode (default)
-bun bin/robinhood-for-agents.ts --mode agent   # agent mode (or ROBINHOOD_MODE=agent)
+bun bin/robinhood-for-agents.ts --mode web     # web mode (or ROBINHOOD_MODE=web)
 ```
-**Standard mode** registers the 59 tools of `src/server/tools/*.ts`, which call `api.robinhood.com` through `src/client/` under the Chrome browser session; every account.
+**Web mode** registers the 59 tools of `src/server/tools/*.ts`, which call `api.robinhood.com` through `src/client/` under the Chrome browser session; every account.
 
-**Agent mode** registers the 81 official tools plus `robinhood_official_login` (`src/server/official/forward.ts`, title, description, schemas and annotations read verbatim from `docs/official-mcp-tools.json` at startup), each relayed unchanged to `agent.robinhood.com/mcp/trading`; no web-API code path. The modes never mix in one process; running both is two client entries (`robinhood-for-agents`, `robinhood-agent`).
+**Standard mode** registers the 81 official tools plus `robinhood_official_login` (`src/server/official/forward.ts`, title, description, schemas and annotations read verbatim from `docs/official-mcp-tools.json` at startup), each relayed unchanged to `agent.robinhood.com/mcp/trading`; no web-API code path. The modes never mix in one process; running both is two client entries (`robinhood-for-agents` standard, `robinhood-web` web).
 
 ## Development
 ```bash
@@ -62,14 +62,14 @@ await rh.restoreSession();
 ```
 - All methods are `async` (native `fetch` under the hood)
 - Multi-account is first-class: every account-scoped method accepts `accountNumber`
-- Standard-mode session cached in OS keychain via `Bun.secrets` (macOS Keychain Services) by default, or an AES-256-GCM file when `ROBINHOOD_TOKENS_FILE` is set — no plaintext fallback
+- Web-mode session cached in OS keychain via `Bun.secrets` (macOS Keychain Services) by default, or an AES-256-GCM file when `ROBINHOOD_TOKENS_FILE` is set — no plaintext fallback
 - Token refresh via `refresh_token` + `device_token` — **proactive** (pre-request hook renews 24h before `expires_at`, `REFRESH_SKEW_SEC` in `src/client/auth.ts`) *and* reactive (on 401). Refresh tokens are single-use: every refresh rotates them and kills the previous one
 - Proper exceptions: `AuthenticationError`, `TokenExpiredError` (subclass — a 401 that survived the refresh retry; means re-login), `APIError`
 - **Do NOT use `phoenix.robinhood.com`** — it rejects TLS. Use `api.robinhood.com` endpoints only.
 - **Short sales are a distinct side, not a `sell`** — `side: "sell_short"` **and** `position_effect: "open"` must be sent together (either alone → `This type of trade is invalid.`; a plain `sell` with no position → `Not enough shares to sell.`). `order_form_type: "short_selling"` is derived server-side. Shorts are also session-scoped — send an explicit `market_hours` or the API rejects them after the close. Margin account required; whole shares only; there is no `buy_to_cover` side — cover with a plain `buy`
 
 ## Authentication
-Standard mode signs in with `robinhood_browser_login` (the Chrome session, every bullet below except the agent-mode one). Agent mode signs in with `robinhood_official_login` (the official OAuth credential, the agent-mode bullet); neither credential works on the other's surface.
+Web mode signs in with `robinhood_browser_login`, the Chrome session that every bullet below describes except one. Standard mode signs in with `robinhood_official_login` (the official OAuth credential, the standard-mode bullet); neither credential works on the other's surface.
 
 - Browser login (`robinhood_browser_login`) opens Google Chrome via playwright-core's `channel: "chrome"` (`src/server/browser-auth.ts`). Chrome must be installed — there is no Brave/Chromium auto-detection, `BROWSER_PATH` override, or `--chrome` CLI flag implemented yet, despite earlier docs suggesting otherwise.
 - Purely passive — Playwright intercepts `/oauth2/token` network traffic, never interacts with the DOM
@@ -84,8 +84,8 @@ Standard mode signs in with `robinhood_browser_login` (the Chrome session, every
 - Proactive renewal keeps the chain alive only while the client is *in use*. Idle longer than the refresh-token lifetime → the chain lapses and a new browser login is required
 - A 401 that survives the refresh retry raises `TokenExpiredError` ("re-authenticate with browser login"), not a bare `APIError: HTTP 401` (`src/client/http.ts`)
 - `robinhood_check_session` **probes the API** rather than checking that tokens exist: `logged_in` | `expired` (with re-login instructions) | `unknown` (transient/network) | `not_authenticated`
-- **Agent-mode credential:** agent mode (`src/server/official/`) uses a second, separate OAuth credential minted by `robinhood_official_login` (PKCE browser sign-in, own DCR client), stored only in an AES-256-GCM file, never the keychain (`official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`; key from `ROBINHOOD_TOKEN_KEY` only, and a missing key is an error); single-use refresh rotation, saved before use, adopt-on-conflict like the REST path; trades the Agentic account only
-- **Docker / headless:** Use `EncryptedFileTokenStore` — set `ROBINHOOD_TOKENS_FILE` and `ROBINHOOD_TOKEN_KEY` env vars. The `onboard` command can export encrypted tokens for container use (standard mode; agent mode mounts the directory holding `official-mcp.enc`, see docs/DOCKER.md#agent-mode). `install --mode agent` does not pass `ROBINHOOD_TOKEN_KEY`; register with `claude mcp add … -e ROBINHOOD_TOKEN_KEY=…` instead.
+- **Standard-mode credential:** standard mode (`src/server/official/`) uses a second, separate OAuth credential minted by `robinhood_official_login` (PKCE browser sign-in, own DCR client), stored only in an AES-256-GCM file, never the keychain (`official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`; key from `ROBINHOOD_TOKEN_KEY` only, and a missing key is an error); single-use refresh rotation, saved before use, adopt-on-conflict like the REST path; trades the Agentic account only
+- **Docker / headless:** Use `EncryptedFileTokenStore` — set `ROBINHOOD_TOKENS_FILE` and `ROBINHOOD_TOKEN_KEY` env vars. The `onboard` command can export encrypted tokens for container use (web mode; standard mode mounts the directory holding `official-mcp.enc`, see docs/DOCKER.md#standard-mode). `onboard` and `install` do not pass `ROBINHOOD_TOKEN_KEY`; register standard mode with `claude mcp add … -e ROBINHOOD_TOKEN_KEY=…` instead.
 
 ## Safety Rules
 - **NEVER** place bulk cancel operations

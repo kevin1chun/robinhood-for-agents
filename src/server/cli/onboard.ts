@@ -92,12 +92,12 @@ export async function onboard(preselectedAgent?: AgentId): Promise<void> {
     const selected = await p.select({
       message: "Which mode?",
       options: [
-        { value: "standard" as const, label: "standard", hint: "Chrome login, web API" },
         {
-          value: "agent" as const,
-          label: "agent",
-          hint: "Robinhood's official credential, hosted MCP",
+          value: "standard" as const,
+          label: "standard",
+          hint: "Robinhood's official hosted MCP (recommended)",
         },
+        { value: "web" as const, label: "web", hint: "Chrome login, web API" },
       ],
     });
     if (p.isCancel(selected)) {
@@ -151,7 +151,7 @@ export async function onboard(preselectedAgent?: AgentId): Promise<void> {
     }
   }
 
-  if (mode === "agent") {
+  if (mode === "standard") {
     p.outro(`Done! ${agent.postInstallHint} Then ask your agent to run robinhood_official_login.`);
     return;
   }
@@ -318,12 +318,12 @@ async function exportEncryptedTokens(): Promise<void> {
 
   p.log.step("Set these env vars in your container:");
   p.log.message(
-    "  ROBINHOOD_TOKENS_FILE=/app/tokens.enc\n  ROBINHOOD_TOKEN_KEY=<paste from clipboard>",
+    "  ROBINHOOD_MODE=web\n  ROBINHOOD_TOKENS_FILE=/app/tokens.enc\n  ROBINHOOD_TOKEN_KEY=<paste from clipboard>",
   );
 
   p.log.step("docker-compose.yml example:");
   p.log.message(
-    '  services:\n    agent:\n      volumes:\n        - ./tokens.enc:/app/tokens.enc:rw\n      environment:\n        ROBINHOOD_TOKENS_FILE: "/app/tokens.enc"\n        ROBINHOOD_TOKEN_KEY: "<paste from clipboard>"',
+    '  services:\n    agent:\n      volumes:\n        - ./tokens.enc:/app/tokens.enc:rw\n      environment:\n        ROBINHOOD_MODE: "web"\n        ROBINHOOD_TOKENS_FILE: "/app/tokens.enc"\n        ROBINHOOD_TOKEN_KEY: "<paste from clipboard>"',
   );
 
   p.log.warn(

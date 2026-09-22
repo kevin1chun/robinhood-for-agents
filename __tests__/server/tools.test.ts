@@ -352,12 +352,12 @@ async function callTool(
 
 describe("MCP Server", () => {
   it("creates server with correct name", () => {
-    const server = createServer();
+    const server = createServer({ mode: "web" });
     expect(server).toBeDefined();
   });
 
   it("registers all 40 tools without throwing", () => {
-    createServer();
+    createServer({ mode: "web" });
     expect(true).toBe(true);
   });
 
@@ -1154,7 +1154,7 @@ describe("Phase 3 order-review tools", () => {
     ]) {
       expect(data).toHaveProperty(k);
     }
-    // Not reproducible from a standard token → null, never fabricated.
+    // Not reproducible from a web-session token → null, never fabricated.
     expect(data.market_data_disclosure).toBeNull();
     // Only the caller-supplied account number is echoed.
     expect(data.account_number).toBe("ACCT");

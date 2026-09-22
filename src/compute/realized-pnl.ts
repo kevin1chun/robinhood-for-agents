@@ -1,7 +1,7 @@
 /**
  * Realized profit & loss — pure computation (no I/O, no client, fully unit-testable).
  *
- * WHY THIS EXISTS: Robinhood exposes no standard-token REST endpoint for equity/option
+ * WHY THIS EXISTS: Robinhood exposes no web-session-token REST endpoint for equity/option
  * realized P&L (the app's "PnL hub" and the official MCP's "Wormhole" service both compute
  * it; probing `/wormhole/*` etc. returns 404). So for architecture-B parity we compute it
  * ourselves from order executions. Crypto realized P&L, by contrast, is native (`gain_loss`

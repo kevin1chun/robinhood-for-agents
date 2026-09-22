@@ -2,7 +2,7 @@
 
 > **Scope:** both modes; each has its own section. Which mode: [MODES.md](MODES.md).
 
-**TL;DR** -- Agent mode: mount the directory holding `official-mcp.enc` **read-write**, set `ROBINHOOD_MODE=agent` and the encryption key, and sign in on the host -- see [Agent mode](#agent-mode). Standard mode: run `onboard` on the host to login and export an encrypted token file. Mount the file into the container **read-write** (the SDK rotates and rewrites tokens) and pass the encryption key as an env var.
+**TL;DR** -- Standard mode: mount the directory holding `official-mcp.enc` **read-write**, set the encryption key, and sign in on the host -- see [Standard mode](#standard-mode). Web mode: run `onboard` on the host to login and export an encrypted token file, and set `ROBINHOOD_MODE=web` in the container. Mount the file into the container **read-write** (the SDK rotates and rewrites tokens) and pass the encryption key as an env var.
 
 ---
 
@@ -23,11 +23,11 @@ The SDK auto-detects the environment: if `ROBINHOOD_TOKENS_FILE` is set, it uses
 
 ---
 
-## Agent mode
+## Standard mode
 
-The agent-mode server (`--mode agent` or `ROBINHOOD_MODE=agent`) keeps its credential in `official-mcp.enc` in the directory of `ROBINHOOD_TOKENS_FILE` (only the directory is used; the file itself need not exist), encrypted under `ROBINHOOD_TOKEN_KEY`. It never reads the keychain or `tokens.enc`.
+The standard-mode server (the default) keeps its credential in `official-mcp.enc` in the directory of `ROBINHOOD_TOKENS_FILE` (only the directory is used; the file itself need not exist), encrypted under `ROBINHOOD_TOKEN_KEY`. It never reads the keychain or `tokens.enc`.
 
-1. On the host, sign in once: run the agent-mode entry with `ROBINHOOD_TOKEN_KEY` set and `ROBINHOOD_TOKENS_FILE=$PWD/rh/tokens.enc`, and call `robinhood_official_login`. The sign-in needs a browser that reaches the server's `127.0.0.1` callback, which a container does not have. The credential lands in `./rh/official-mcp.enc`.
+1. On the host, sign in once: run the standard-mode entry with `ROBINHOOD_TOKEN_KEY` set and `ROBINHOOD_TOKENS_FILE=$PWD/rh/tokens.enc`, and call `robinhood_official_login`. The sign-in needs a browser that reaches the server's `127.0.0.1` callback, which a container does not have. The credential lands in `./rh/official-mcp.enc`.
 2. Stop the host entry: refresh tokens are single-use, so only one process may hold the credential.
 3. Mount the directory read-write and pass the same key:
 
@@ -36,7 +36,6 @@ services:
   agent:
     image: your-agent-image
     environment:
-      ROBINHOOD_MODE: "agent"
       ROBINHOOD_TOKENS_FILE: "/secrets/tokens.enc"
       ROBINHOOD_TOKEN_KEY: "${ROBINHOOD_TOKEN_KEY}"
     volumes:
@@ -47,7 +46,7 @@ A single-file mount leaves `official-mcp.enc`, which every refresh rewrites, out
 
 ---
 
-## Standard mode
+## Web mode
 
 ### 1. Login and export tokens on the host
 
@@ -66,7 +65,7 @@ After onboard completes, you will have:
 
 ### 2. Configure your container
 
-Two env vars control `EncryptedFileTokenStore`:
+Two env vars control `EncryptedFileTokenStore`, and `ROBINHOOD_MODE=web` selects web mode for the MCP server:
 
 | Env var | Description |
 |---------|-------------|
@@ -80,6 +79,7 @@ services:
   agent:
     image: your-agent-image
     environment:
+      ROBINHOOD_MODE: "web"
       ROBINHOOD_TOKENS_FILE: "/secrets/tokens.enc"
       ROBINHOOD_TOKEN_KEY: "${ROBINHOOD_TOKEN_KEY}"
     volumes:
@@ -92,6 +92,7 @@ services:
 
 ```bash
 docker run \
+  -e ROBINHOOD_MODE=web \
   -e ROBINHOOD_TOKENS_FILE=/secrets/tokens.enc \
   -e ROBINHOOD_TOKEN_KEY="$ROBINHOOD_TOKEN_KEY" \
   -v ./tokens.enc:/secrets/tokens.enc:rw \
@@ -138,7 +139,7 @@ If you rotated the encryption key during onboard, update `ROBINHOOD_TOKEN_KEY` t
 
 ## How it works
 
-> **Scope:** standard mode (`tokens.enc`). The agent-mode file `official-mcp.enc` is rewritten on every refresh the same way.
+> **Scope:** web mode (`tokens.enc`). The standard-mode file `official-mcp.enc` is rewritten on every refresh the same way.
 
 ```
 ┌─── Host ──────────────────────┐    ┌─── Container ──────────────────────┐
@@ -175,5 +176,5 @@ To revoke immediately, delete the encrypted file on the host:
 rm ./tokens.enc   # wherever you ran `onboard` from
 ```
 
-Agent mode: the file is `official-mcp.enc` in the mounted directory.
+Standard mode: the file is `official-mcp.enc` in the mounted directory.
 

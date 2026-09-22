@@ -336,7 +336,7 @@ suite("integration: RobinhoodClient (live, read-only)", () => {
 
   it("gets scanner filter specs (embedded catalog)", async () => {
     // Account-agnostic static catalog (no live Beacon filter-spec route with a
-    // standard token) — assert its shape, not a network round-trip.
+    // web-session token) — assert its shape, not a network round-trip.
     const specs = await client.getScannerFilterSpecs();
     expect(Array.isArray(specs)).toBe(true);
     expect(specs.length).toBeGreaterThan(0);

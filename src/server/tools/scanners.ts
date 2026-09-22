@@ -2,12 +2,12 @@
  * Scanner (screener) read tools for Robinhood.
  *
  * Both tools are read-only. They mirror the official Robinhood Trading MCP's
- * `get_scanner_filter_specs` and `get_scans`, reimplemented over the standard
+ * `get_scanner_filter_specs` and `get_scans`, reimplemented over the web
  * surface with two deliberate, documented fidelity notes:
  *
  *  - `get_scanner_filter_specs` is served from an EMBEDDED static catalog
  *    captured verbatim from the official tool (the live Beacon filter-spec
- *    route isn't reachable with a standard token, and its raw wire shape
+ *    route isn't reachable with a web-session token, and its raw wire shape
  *    differs from the DTO). Provenance is reported in the tool result's `note`
  *    and the description — never inside the spec objects, which stay byte-parity
  *    with the official DTO. See `src/client/scanner-filter-specs.ts`.

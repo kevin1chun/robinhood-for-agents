@@ -1,6 +1,6 @@
 /**
  * Rewrites docs/official-mcp-tools.json with Robinhood's hosted MCP `tools/list` result, every
- * field as sent, sorted by name. Needs the agent-mode credential (`robinhood_official_login`) and
+ * field as sent, sorted by name. Needs the standard-mode credential (`robinhood_official_login`) and
  * ROBINHOOD_TOKEN_KEY.
  *
  *   bun run refresh-official-tools
