@@ -1,5 +1,7 @@
 # Use Cases
 
+> **Scope:** both modes unless noted. The Interactive examples that write a script use the client library (standard mode); the Programmatic examples work in either mode, and in agent mode orders reach the Agentic account only. Which mode: [MODES.md](MODES.md).
+
 ## Interactive (Skills via Claude Code)
 
 ### Morning Portfolio Check

@@ -1,5 +1,7 @@
 # Agent Identity and Per-Tool Authorization
 
+> **Scope:** both modes — the proxy fronts whichever MCP entry you point it at; nothing here depends on the mode. Which mode: [MODES.md](MODES.md).
+
 SECURITY.md covers how robinhood-for-agents protects OAuth tokens at rest.
 This guide covers a different question: when multiple agents or third-party
 tools connect to your MCP server, how do you verify which agent is acting

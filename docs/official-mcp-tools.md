@@ -1,5 +1,7 @@
 Official Robinhood Trading MCP (https://agent.robinhood.com/mcp/trading): its measured rate limit and the fork's parity with its 81 tools. The tools themselves, every field the server's `tools/list` answers, are [`official-mcp-tools.json`](official-mcp-tools.json), rewritten by `bun run refresh-official-tools` after `robinhood_official_login`. Source of truth for parity.
 
+> **Scope:** both modes — the Parity table says which tools each mode serves; the rate limit is the hosted server's, so it applies to agent mode. Which mode: [MODES.md](MODES.md).
+
 ## Measured rate limit
 
 This is the limit of the official hosted server (agent.robinhood.com), not of the REST API this package calls. Robinhood publishes no limit.
