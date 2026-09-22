@@ -1,5 +1,7 @@
 # Access Controls
 
+> **Scope:** both modes. Rows tagged "(agent mode)" exist only in agent mode; every other tool exists in both (per-tool split: [official-mcp-tools.md](official-mcp-tools.md#parity)). In agent mode every call is relayed to Robinhood's hosted MCP and orders reach the Agentic account only. Which mode: [MODES.md](MODES.md).
+
 ## Risk Levels
 
 The **Skill** column references domain files of the unified `robinhood-for-agents` skill (e.g. `portfolio.md`, `trade.md` under `skills/robinhood-for-agents/`).
@@ -44,7 +46,7 @@ Operations with limited financial impact or credential exposure. Includes **reve
 | Scanner Writes (agent mode) | `robinhood_create_scan`, `robinhood_update_scan_config`, `robinhood_update_scan_filters` | - |
 
 ### High Risk (Write Operations)
-Order placement. Account, symbol (or legs), side, and order type are always explicit. In agent mode every order tool is relayed to Robinhood's hosted MCP and reaches the Agentic account only.
+Order placement. Account, symbol (or legs), side, and order type are always explicit.
 
 | Operation | MCP Tool | Skill |
 |-----------|----------|-------|

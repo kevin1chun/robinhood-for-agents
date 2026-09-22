@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-09-21
+
+Documentation only; no code, tools, or schemas changed.
+
+### Changed
+
+- **README rebuilt around a reader path** — intro → Quick start → Choosing a mode → Install → Sign in → What you can do → Tools → Placing orders → Client library → Docker and headless → Safety → Development. Quick start is the 60-second agent-mode setup (generate `ROBINHOOD_TOKEN_KEY`, register `robinhood-agent`, run `robinhood_official_login`); Choosing a mode recommends agent mode as the surface Robinhood supports and explains standard mode as the unofficial web-API path you pick for reach — every brokerage account and the client library.
+- **`docs/MODES.md`** is the single mode comparison (side-by-side table, per-mode setup chain, which doc covers which mode), and every other doc now opens with a scope banner naming the mode it describes.
+- **README `## Authentication` removed.** Token storage, lifetime and rotation live in `docs/SECURITY.md`; `restoreSession()`, the refresh paths, session health and the exception hierarchy in `docs/ARCHITECTURE.md`. Inbound links were repointed.
+- The tool table's collapsed agent-only row now lists all 29 agent-only tools (`robinhood_get_equity_analyst_ratings` was missing), matching `docs/official-mcp-tools.md#parity`.
+- Added a Buy Me a Coffee badge and a short note from the maintainer.
+
 ## [3.0.0] - 2026-09-18
 
 The MCP tools take the official Robinhood Trading MCP's names and input schemas (parameter names, types, enums, required set) wherever a standard-REST endpoint is evidenced. `docs/official-mcp-tools.md#parity` maps all 81 official tools (34 same, 15 renamed, 3 new, 29 agent-only); `__tests__/server/official-parity.test.ts` checks every schema against the official one in both modes. The server runs in one of two modes: standard (59 tools, web API) or agent (82 tools, relayed to Robinhood's hosted MCP). The client library stays backwards-compatible.
@@ -243,6 +255,7 @@ The MCP tools take the official Robinhood Trading MCP's names and input schemas 
 - Safety controls: blocked fund transfers, blocked bulk cancels, explicit order parameters
 - Support for Claude Code, Codex, and OpenClaw agents
 
+[3.0.1]: https://github.com/kevin1chun/robinhood-for-agents/compare/v3.0.0...v3.0.1
 [1.1.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/kevin1chun/robinhood-for-agents/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/kevin1chun/robinhood-for-agents/compare/v0.8.0...v1.0.0

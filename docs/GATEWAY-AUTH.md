@@ -12,6 +12,8 @@ Places an auth gateway between agents and robinhood-for-agents. The gateway veri
 > `AgentVerifier` interface with real verification (JWT, DID, ZKP, etc.).
 > See [Custom Verifier](#custom-verifier) below.
 
+> **Scope:** both modes — the gateway fronts whichever MCP entry you point it at; nothing here depends on the mode. Which mode: [MODES.md](MODES.md).
+
 ## Architecture
 
 ```

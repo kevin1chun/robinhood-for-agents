@@ -1,8 +1,10 @@
 # Security Model
 
-This document describes how robinhood-for-agents protects Robinhood OAuth tokens under the new TokenStore adapter architecture.
+> **Scope:** both modes — the standard-mode session tokens (keychain or encrypted file) and the agent-mode credential (encrypted file only). Which mode: [MODES.md](MODES.md).
 
 ## What we store
+
+### Standard-mode session
 
 A single JSON blob containing:
 
@@ -15,7 +17,13 @@ A single JSON blob containing:
 
 The `access_token` alone is enough to trade on the user's Robinhood account until it expires. The `refresh_token` + `device_token` pair is enough to keep minting new ones indefinitely.
 
+### Agent-mode credential
+
+Agent mode (`--mode agent`) holds a second, separate OAuth credential for Robinhood's hosted MCP, minted by `robinhood_official_login` (PKCE browser sign-in, its own registered client; `src/server/official/auth.ts`). Neither credential works on the other's surface. It is stored only in `official-mcp.enc` (beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/`), AES-256-GCM, mode 0600, keyed by `ROBINHOOD_TOKEN_KEY` alone: it never touches the keychain, and a missing key is an error, not a generated key. Its refresh tokens rotate single-use like the REST session's, and the rotated pair is saved before use. Orders through it reach the Agentic account only. The env-var threat model of [Scenario B](#scenario-b-encryptedfiletokenstore-with-key-in-same-environment) applies to it in every deployment.
+
 ## Architecture: TokenStore adapters
+
+> **Scope:** standard mode and the client library.
 
 The client loads tokens from a `TokenStore` and injects `Authorization: Bearer <token>` directly into every request. There is no intermediary proxy. Token refresh happens inside the client — proactively before each request once the token is within 24 hours of expiry, and reactively on a 401 as a fallback.
 
@@ -45,10 +53,6 @@ Two TokenStore adapters are provided:
 | `EncryptedFileTokenStore` | AES-256-GCM encrypted file on disk | Docker, headless servers, CI, cloud |
 
 Auto-detection: if `ROBINHOOD_TOKENS_FILE` is set, the SDK uses `EncryptedFileTokenStore`; otherwise it uses `KeychainTokenStore`.
-
-## Agent-mode credential
-
-Agent mode (`--mode agent`) holds a second, separate OAuth credential for Robinhood's hosted MCP, minted by `robinhood_official_login` (PKCE browser sign-in, its own registered client; `src/server/official/auth.ts`). Neither credential works on the other's surface. It is stored only in `official-mcp.enc` (beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/`), AES-256-GCM, mode 0600, keyed by `ROBINHOOD_TOKEN_KEY` alone: it never touches the keychain, and a missing key is an error, not a generated key. Its refresh tokens rotate single-use like the REST session's, and the rotated pair is saved before use. Orders through it reach the Agentic account only. The env-var threat model of [Scenario B](#scenario-b-encryptedfiletokenstore-with-key-in-same-environment) applies to it in every deployment.
 
 ## Token lifetime and rotation
 
@@ -183,9 +187,11 @@ $ bun -e "console.log(await Bun.secrets.get('robinhood-for-agents','session-toke
 | **2. Strong** | `EncryptedFileTokenStore` | OS keychain | Encrypted file | Agent must have same-user keychain access (for the key) |
 | **3. Weaker** | `EncryptedFileTokenStore` | `ROBINHOOD_TOKEN_KEY` env var | Encrypted file | **Agent with shell access can decrypt — env var + file are collocated** |
 
+The agent-mode credential is always tier 3 — file plus `ROBINHOOD_TOKEN_KEY` in the environment; there is no keychain option for it.
+
 ## Docker and headless deployments
 
-> **WARNING: In Docker, both the encrypted token file and the `ROBINHOOD_TOKEN_KEY` env var live inside the container. This means a rogue agent with shell access (or code execution) can decrypt your Robinhood tokens. Encryption here is defense-in-depth, NOT a security boundary.**
+> **WARNING: In Docker, both the encrypted credential file (`tokens.enc` or `official-mcp.enc`) and the `ROBINHOOD_TOKEN_KEY` env var live inside the container. This means a rogue agent with shell access (or code execution) can decrypt your Robinhood tokens. Encryption here is defense-in-depth, NOT a security boundary.**
 
 ### Why this is acceptable (with caveats)
 

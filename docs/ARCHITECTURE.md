@@ -1,6 +1,10 @@
 # robinhood-for-agents -- Architecture & Design
 
+> **Scope:** both modes — one System Overview diagram each. The Authentication, HTTP Layer, Multi-Account and Order Placement sections describe standard mode and the client library; agent mode is the relay in `src/server/official/`. Which mode: [MODES.md](MODES.md).
+
 ## System Overview
+
+**Standard mode (web API):**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -37,10 +41,27 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+**Agent mode (hosted MCP):**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  User / agent                                                   │
+│        │  robinhood_place_equity_order(...)                     │
+│        ▼                                                        │
+│  MCP tools: official/forward.ts                                 │
+│  (title, description, schemas, annotations verbatim from        │
+│   docs/official-mcp-tools.json)                                 │
+│        │  Authorization: Bearer <official credential>           │
+│        │  (official/auth.ts, official-mcp.enc)                  │
+│        ▼                                                        │
+│  agent.robinhood.com/mcp/trading                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 `src/client/` is the TypeScript API client. `src/server/` is the MCP server, which runs in one mode per process (`--mode agent|standard`, else `ROBINHOOD_MODE`, else `standard`; `src/server/mode.ts`):
 
-- **Standard:** the 59 tools of `src/server/tools/` call Robinhood's web API through `src/client/` with the Chrome session's Bearer token, as drawn above.
 - **Agent:** `src/server/official/forward.ts` registers the 81 official tools with Robinhood's own title, description, schemas and annotations, verbatim (from `docs/official-mcp-tools.json`, the hosted server's `tools/list`, rewritten by `bun run refresh-official-tools`) plus `robinhood_official_login`, and relays each call unchanged to Robinhood's hosted MCP at `agent.robinhood.com` under the official OAuth credential (`official/auth.ts`). No web-API code path runs.
+- **Standard:** the 59 tools of `src/server/tools/` call Robinhood's web API through `src/client/` with the Chrome session's Bearer token, as in the first diagram.
 
 ## Tech Stack
 
@@ -118,6 +139,8 @@ src/server/                    <- robinhood-for-agents MCP server
 ```
 
 ## Authentication
+
+> **Scope:** standard mode and the client library.
 
 ### TokenStore Architecture
 
@@ -346,6 +369,8 @@ Proactive renewal exists because the reactive path alone cannot keep the chain a
 
 ## HTTP Layer
 
+> **Scope:** standard mode and the client library.
+
 ### Request Pipeline
 
 ```
@@ -397,6 +422,8 @@ Note the branch: `TokenExpiredError` descends from `AuthenticationError`, **not*
 
 ## Multi-Account
 
+> **Scope:** standard mode and the client library.
+
 Standard Robinhood `/accounts/` only returns the default APEX account. We always pass:
 
 ```typescript
@@ -415,7 +442,7 @@ Every account-scoped method accepts `accountNumber?: string`:
 
 ## MCP Tools
 
-Standard mode (59): the tools access the client via the `getClient()` singleton and are registered by module in `src/server/tools/`. Agent mode (82): `src/server/official/forward.ts` registers every official tool in the Parity table plus `official_login`.
+Agent mode (82): `src/server/official/forward.ts` registers every official tool in the Parity table plus `official_login`. Standard mode (59): the tools access the client via the `getClient()` singleton and are registered by module in `src/server/tools/`.
 
 | Module | Tools (all `robinhood_`-prefixed) |
 |---|---|
@@ -436,6 +463,8 @@ Standard mode (59): the tools access the client via the `getClient()` singleton 
 Tools that mirror an official Robinhood Trading MCP tool take its name and input schema; `docs/official-mcp-tools.json` holds the official tools and `docs/official-mcp-tools.md` the Parity table, and `__tests__/server/official-parity.test.ts` fails on any drift. Official enum-like parameters are plain strings in the listed schema and validated at call time (`stringEnum` in `_helpers.ts`), because the official schemas carry no `enum`. The [README](../README.md#tools) describes each tool; [`skills/robinhood-for-agents/reference.md`](../skills/robinhood-for-agents/reference.md) documents parameters and response shapes; [`skills/robinhood-for-agents/client-api.md`](../skills/robinhood-for-agents/client-api.md) maps each tool to the client methods it wraps.
 
 ## Order Placement
+
+> **Scope:** standard mode and the client library. In agent mode order calls are relayed unchanged.
 
 ### Order Type Resolution
 
@@ -514,6 +543,7 @@ Only limit orders execute outside regular hours — `orderStock()` rejects a mar
 
 | Decision | Why |
 |---|---|
+| **Agent mode is a verbatim relay** | Tool metadata comes from `docs/official-mcp-tools.json` and every call is forwarded unchanged to Robinhood's hosted MCP, so an agent sees exactly the official surface; no web-API code path runs in that process. |
 | **TokenStore adapters** | Pluggable token storage. KeychainTokenStore for desktop, EncryptedFileTokenStore for Docker/headless. Client never hard-codes a storage strategy. |
 | **Direct Bearer auth** | Session injects `Authorization: Bearer` directly on every request. No proxy, no URL rewriting, no shared secret. Simpler, fewer moving parts. |
 | **Proactive + reactive refresh** | `ensureFreshToken` renews 24h ahead of `expires_at` before each request; `onUnauthorized` refreshes and retries once on a 401 as a fallback. Concurrent 401s coalesce into a single refresh. Proactive is required because refresh tokens are single-use and an idle process would otherwise let the chain lapse. |
