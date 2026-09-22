@@ -2,7 +2,7 @@
  * Realized profit & loss tools — `robinhood_get_realized_pnl` and
  * `robinhood_get_pnl_trade_history`. They mirror the official Robinhood Trading MCP
  * tools of the same name, but the numbers are COMPUTED by us: Robinhood exposes no
- * standard-token REST endpoint for equity/option realized P&L (the app's PnL hub and
+ * web-session-token REST endpoint for equity/option realized P&L (the app's PnL hub and
  * the official MCP's "Wormhole" service compute it; `/wormhole/*` returns 404).
  *
  * Fidelity, stated honestly in every result `note` (never inside the DTO objects):

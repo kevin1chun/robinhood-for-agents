@@ -20,9 +20,8 @@ import { registerWatchlistTools } from "./tools/watchlists.js";
 
 const INSTRUCTIONS: Record<Mode, string> = {
   standard:
-    "Standard mode: Robinhood's web API under a Chrome browser session; sign in with robinhood_browser_login.",
-  agent:
-    "Agent mode: every tool is relayed to Robinhood's hosted MCP under the official credential; sign in with robinhood_official_login.",
+    "Standard mode: every tool is relayed to Robinhood's hosted MCP under the official credential; sign in with robinhood_official_login.",
+  web: "Web mode: Robinhood's web API under a Chrome browser session; sign in with robinhood_browser_login.",
 };
 
 export function createServer(
@@ -34,7 +33,7 @@ export function createServer(
     { instructions: INSTRUCTIONS[mode] },
   );
 
-  if (mode === "agent") {
+  if (mode === "standard") {
     const store = opts.officialStore ?? createOfficialCredentialStore();
     registerOfficialTools(server, opts.upstream ?? liveUpstream(store), store);
     return server;

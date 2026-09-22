@@ -17,7 +17,7 @@ export interface AgentMeta {
 /** Client entry name per mode; two entries run both modes side by side. */
 export const MCP_ENTRY: Record<Mode, string> = {
   standard: "robinhood-for-agents",
-  agent: "robinhood-agent",
+  web: "robinhood-web",
 };
 
 export const AGENTS: ReadonlyArray<{

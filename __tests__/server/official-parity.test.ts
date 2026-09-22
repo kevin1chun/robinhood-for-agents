@@ -1,8 +1,8 @@
 /**
  * Parity with the official Robinhood Trading MCP. Reads the official tools from
  * docs/official-mcp-tools.json and the Parity table from docs/official-mcp-tools.md.
- * Agent mode (all 81) lists each tool's title, description and annotations verbatim and its
- * input and output schemas; standard mode (all but the agent-only rows) its input schema.
+ * Standard mode (all 81) lists each tool's title, description and annotations verbatim and its
+ * input and output schemas; web mode (all but the standard-only rows) its input schema.
  * A schema is compared by property names, required set, enum values, and primitive type,
  * recursively. Nullability is ignored (the official schemas mark optional arrays nullable).
  */
@@ -89,22 +89,22 @@ function memoryStore(cred: OfficialCredential | null): OfficialCredentialStore {
   };
 }
 
+let web: Map<string, Tool>;
 let standard: Map<string, Tool>;
-let agent: Map<string, Tool>;
 
 beforeAll(async () => {
-  standard = await listed(createServer());
-  agent = await listed(
+  web = await listed(createServer({ mode: "web" }));
+  standard = await listed(
     createServer({
-      mode: "agent",
+      mode: "standard",
       officialStore: memoryStore(null),
       upstream: { connect: () => Promise.reject(new Error("no upstream in tests")) },
     }),
   );
 });
 
-const webServed = [...status].filter(([, s]) => s !== "agent-only").map(([n]) => n);
-const agentOnly = [...status].filter(([, s]) => s === "agent-only").map(([n]) => n);
+const webServed = [...status].filter(([, s]) => s !== "standard-only").map(([n]) => n);
+const standardOnly = [...status].filter(([, s]) => s === "standard-only").map(([n]) => n);
 
 describe("official MCP parity", () => {
   it("the Parity table covers all 81 official tools", () => {
@@ -112,22 +112,24 @@ describe("official MCP parity", () => {
     expect([...status.keys()].sort()).toEqual([...official.keys()].sort());
   });
 
-  it("every status is known; 29 are agent-only", () => {
+  it("every status is known; 29 are standard-only", () => {
     expect(
-      [...status.values()].filter((s) => !["same", "renamed", "new", "agent-only"].includes(s)),
+      [...status.values()].filter((s) => !["same", "renamed", "new", "standard-only"].includes(s)),
     ).toEqual([]);
-    expect(agentOnly).toHaveLength(29);
+    expect(standardOnly).toHaveLength(29);
   });
 
-  it("agent mode lists exactly the 81 official tools plus robinhood_official_login", () => {
-    expect([...agent.keys()].sort()).toEqual(
+  it("standard mode lists exactly the 81 official tools plus robinhood_official_login", () => {
+    expect([...standard.keys()].sort()).toEqual(
       [...[...official.keys()].map((n) => `robinhood_${n}`), "robinhood_official_login"].sort(),
     );
   });
 
-  it.each([...status.keys()])("agent mode: robinhood_%s lists the official definition", (name) => {
+  it.each([
+    ...status.keys(),
+  ])("standard mode: robinhood_%s lists the official definition", (name) => {
     const o = official.get(name) as Tool;
-    const t = agent.get(`robinhood_${name}`) as Tool;
+    const t = standard.get(`robinhood_${name}`) as Tool;
     expect(t.title).toBe(o.title);
     expect(t.description).toBe(o.description);
     expect(t.annotations).toEqual(o.annotations);
@@ -139,17 +141,17 @@ describe("official MCP parity", () => {
     }
   });
 
-  it.each(webServed)("standard mode: robinhood_%s takes the official input schema", (name) => {
-    const tool = standard.get(`robinhood_${name}`);
+  it.each(webServed)("web mode: robinhood_%s takes the official input schema", (name) => {
+    const tool = web.get(`robinhood_${name}`);
     expect(tool, `robinhood_${name} is not registered`).toBeDefined();
     expect(
       drift(official.get(name)?.inputSchema as Schema, tool?.inputSchema as Schema, name),
     ).toEqual([]);
   });
 
-  it("standard mode has no agent-only tool and no official login", () => {
-    for (const n of agentOnly) expect(standard.has(`robinhood_${n}`), n).toBe(false);
-    expect(standard.has("robinhood_official_login")).toBe(false);
-    expect(standard.size).toBe(59);
+  it("web mode has no standard-only tool and no official login", () => {
+    for (const n of standardOnly) expect(web.has(`robinhood_${n}`), n).toBe(false);
+    expect(web.has("robinhood_official_login")).toBe(false);
+    expect(web.size).toBe(59);
   });
 });

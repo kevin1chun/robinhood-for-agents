@@ -301,7 +301,7 @@ vi.mock("../../src/server/browser-auth.js", () => ({
 let client: Client;
 
 beforeAll(async () => {
-  const server = createServer();
+  const server = createServer({ mode: "web" });
   client = new Client({ name: "smoke-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);

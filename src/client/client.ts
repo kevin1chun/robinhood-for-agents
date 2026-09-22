@@ -1754,7 +1754,7 @@ export class RobinhoodClient {
    *
    * Served from an embedded static capture of the official Trading MCP's
    * `get_scanner_filter_specs` output, NOT a live REST read: the Beacon
-   * filter-spec route isn't reachable with a standard token and its raw wire
+   * filter-spec route isn't reachable with a web-session token and its raw wire
    * shape differs from this DTO (see `scanner-filter-specs.ts` for the full
    * rationale and provenance). Async + auth-gated to match the rest of the
    * (authenticated) scanner surface and the client's uniform method contract.
@@ -1832,7 +1832,7 @@ export class RobinhoodClient {
   }
 
   /**
-   * Realized profit & loss, COMPUTED from order history. There is no standard-token REST
+   * Realized profit & loss, COMPUTED from order history. There is no web-session-token REST
    * endpoint for equity/option realized P&L (the app's PnL hub and the official MCP's
    * "Wormhole" both compute it; `/wormhole/*` returns 404).
    *

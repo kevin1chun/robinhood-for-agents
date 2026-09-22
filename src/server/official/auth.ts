@@ -67,7 +67,7 @@ function requireKey(): Buffer {
   const key = envEncryptionKey();
   if (!key) {
     throw new Error(
-      "Agent mode needs ROBINHOOD_TOKEN_KEY (32 random bytes, base64; e.g. `openssl rand -base64 32`) to encrypt its credential file. Set it in the MCP server's environment and restart.",
+      "Standard mode needs ROBINHOOD_TOKEN_KEY (32 random bytes, base64; e.g. `openssl rand -base64 32`) to encrypt its credential file. Set it in the MCP server's environment and restart.",
     );
   }
   return key;

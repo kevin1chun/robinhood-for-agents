@@ -1,4 +1,4 @@
-/** Agent mode relays official tools to an in-memory upstream; no network. */
+/** Standard mode relays official tools to an in-memory upstream; no network. */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -99,14 +99,14 @@ function fakeUpstream() {
 }
 
 async function fork(upstream: Upstream, store: OfficialCredentialStore) {
-  const server = createServer({ mode: "agent", upstream, officialStore: store });
+  const server = createServer({ mode: "standard", upstream, officialStore: store });
   const client = new Client({ name: "agent", version: "0.0.0" });
   const [ct, st] = InMemoryTransport.createLinkedPair();
   await Promise.all([client.connect(ct), server.connect(st)]);
   return client;
 }
 
-describe("agent mode relays official tools", () => {
+describe("standard mode relays official tools", () => {
   it("relays args verbatim and returns the upstream content", async () => {
     const { upstream, calls } = fakeUpstream();
     const client = await fork(upstream, SIGNED_IN);
@@ -198,7 +198,7 @@ describe("agent mode relays official tools", () => {
     expect(r.content[0]?.text).toContain("may have reached Robinhood");
   });
 
-  it("relays a tool the web API also serves in standard mode", async () => {
+  it("relays a tool the web API also serves in web mode", async () => {
     const { upstream, calls } = fakeUpstream();
     const client = await fork(upstream, SIGNED_IN);
     const args = { symbols: ["AAPL"] };
