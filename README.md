@@ -322,7 +322,11 @@ This software is provided "as is" without warranty of any kind. See [LICENSE](LI
 
 ## A note from the maintainer
 
-I'm a solo developer. I built this for myself and keep it current because I use it every day, and I share it so other people can get the same joy out of it. If it's useful to you, [a coffee](https://buymeacoffee.com/kevin1chun) helps keep it maintained. Issues and pull requests are always welcome.
+I'm a solo developer. I built this for myself, I use it every day, and I keep it up to date so anyone else can share the joy of it. If it saves you time or makes trading more fun, a coffee helps me keep pace with changes to Robinhood's API and official MCP, and keep adding new tools:
+
+<a href="https://buymeacoffee.com/kevin1chun"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="45"></a>
+
+A star on the repo helps too, and issues and pull requests are always welcome.
 
 ## License
 
