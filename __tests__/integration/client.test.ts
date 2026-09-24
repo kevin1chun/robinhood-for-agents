@@ -6,7 +6,7 @@
  * Plug in a token one of three ways, then run `bun run test:integration`:
  *   1. Direct token:   ROBINHOOD_ACCESS_TOKEN=<token> bun run test:integration
  *   2. Encrypted file: ROBINHOOD_TOKENS_FILE=<path> ROBINHOOD_TOKEN_KEY=<key> bun run test:integration
- *   3. OS keychain:    robinhood-for-agents onboard   (then) ROBINHOOD_INTEGRATION=1 bun run test:integration
+ *   3. OS keychain:    robinhood-for-agents login   (then) ROBINHOOD_INTEGRATION=1 bun run test:integration
  *
  * With none of the above set, the whole suite auto-skips (safe for CI).
  *

@@ -176,7 +176,7 @@ describe("createTokenStore", () => {
 });
 
 // Regression: saveTokens/loadTokens/deleteTokens (used by browser-auth.ts's
-// interactive login and onboard.ts) previously delegated to a hardcoded
+// interactive login and login.ts) previously delegated to a hardcoded
 // KeychainTokenStore regardless of ROBINHOOD_TOKENS_FILE, so logging in while
 // file-store mode was configured silently wrote to the keychain instead of
 // the file — restoreSession() (which does honor createTokenStore()) would

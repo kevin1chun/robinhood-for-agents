@@ -1,6 +1,6 @@
 {
   "name": "robinhood-for-agents",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "type": "module",
   "description": "AI-native Robinhood trading interface — MCP server + TypeScript client",
   "license": "MIT",
@@ -46,7 +46,9 @@
   "dependencies": {
     "@clack/prompts": "^1.1.0",
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "add-mcp": "^2.4.0",
     "playwright-core": "^1.50.0",
+    "skills": "1.7.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -61,7 +63,7 @@
     "typecheck": "tsc --noEmit",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "onboard": "bun bin/robinhood-for-agents.ts onboard",
+    "login": "bun bin/robinhood-for-agents.ts login",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "bun test __tests__/integration/",

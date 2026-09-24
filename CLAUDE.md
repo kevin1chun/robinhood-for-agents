@@ -6,6 +6,7 @@ AI-native Robinhood trading interface — MCP server + TypeScript client library
 - `src/client/` — Robinhood API client (82 async methods)
 - `src/server/` — MCP server, one mode per process: standard (82 tools, `src/server/official/`, the default) or web (59 tools, `src/server/tools/`); official tools: `docs/official-mcp-tools.json` (the hosted server's tools/list, `bun run refresh-official-tools`); parity table: `docs/official-mcp-tools.md`
 - `bin/` — CLI entry point (`robinhood-for-agents`)
+- `src/server/cli/` — `install` (add-mcp library registers the server, pinned `skills` CLI copies the skill; generates or reuses `ROBINHOOD_TOKEN_KEY`) and `login` (web-mode Chrome login, `--export` for Docker)
 - `skills/` — Claude Code skills for interactive use
 
 ## Tech Stack
@@ -35,9 +36,9 @@ npx vitest run      # all tests (use vitest, NOT bun test)
 ```
 
 ## Skills
-Canonical skill source is `skills/`. Local `.claude/skills/` contains symlinks for development.
+Canonical skill source is `skills/`; `install` copies it into each agent's global skills dir.
 
-Install MCP server + skills: `bun bin/robinhood-for-agents.ts install`
+Install MCP server + skills into detected agent apps: `bun bin/robinhood-for-agents.ts install` (never run it without a temp `HOME` in tests/verification — it writes real agent configs)
 
 Skills use three-layer progressive disclosure:
 1. **SKILL.md** — MCP tool orchestration (default)
@@ -85,7 +86,7 @@ Web mode signs in with `robinhood_browser_login`, the Chrome session that every 
 - A 401 that survives the refresh retry raises `TokenExpiredError` ("re-authenticate with browser login"), not a bare `APIError: HTTP 401` (`src/client/http.ts`)
 - `robinhood_check_session` **probes the API** rather than checking that tokens exist: `logged_in` | `expired` (with re-login instructions) | `unknown` (transient/network) | `not_authenticated`
 - **Standard-mode credential:** standard mode (`src/server/official/`) uses a second, separate OAuth credential minted by `robinhood_official_login` (PKCE browser sign-in, own DCR client), stored only in an AES-256-GCM file, never the keychain (`official-mcp.enc` beside `ROBINHOOD_TOKENS_FILE`, else `~/.robinhood-for-agents/official-mcp.enc`; key from `ROBINHOOD_TOKEN_KEY` only, and a missing key is an error); single-use refresh rotation, saved before use, adopt-on-conflict like the REST path; trades the Agentic account only
-- **Docker / headless:** Use `EncryptedFileTokenStore` — set `ROBINHOOD_TOKENS_FILE` and `ROBINHOOD_TOKEN_KEY` env vars. The `onboard` command can export encrypted tokens for container use (web mode; standard mode mounts the directory holding `official-mcp.enc`, see docs/DOCKER.md#standard-mode). `onboard` and `install` do not pass `ROBINHOOD_TOKEN_KEY`; register standard mode with `claude mcp add … -e ROBINHOOD_TOKEN_KEY=…` instead.
+- **Docker / headless:** Use `EncryptedFileTokenStore` — set `ROBINHOOD_TOKENS_FILE` and `ROBINHOOD_TOKEN_KEY` env vars. `login --export` exports web-mode tokens to `./tokens.enc` for containers (standard mode mounts the directory holding `official-mcp.enc`, see docs/DOCKER.md#standard-mode). `install` generates `ROBINHOOD_TOKEN_KEY` (or reuses the one already in an agent config) and writes it into each agent's config.
 
 ## Safety Rules
 - **NEVER** place bulk cancel operations
@@ -111,7 +112,7 @@ Tests use mocking (vi.mock) for HTTP layer — no real API calls.
 ### Integration Tests (local only, requires login)
 ```bash
 # Login first (one-time)
-robinhood-for-agents onboard
+robinhood-for-agents login
 
 # Run integration tests
 bun run test:integration

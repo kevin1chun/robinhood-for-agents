@@ -2,7 +2,7 @@
 
 > **Scope:** both modes; each has its own section. Which mode: [MODES.md](MODES.md).
 
-**TL;DR** -- Standard mode: mount the directory holding `official-mcp.enc` **read-write**, set the encryption key, and sign in on the host -- see [Standard mode](#standard-mode). Web mode: run `onboard` on the host to login and export an encrypted token file, and set `ROBINHOOD_MODE=web` in the container. Mount the file into the container **read-write** (the SDK rotates and rewrites tokens) and pass the encryption key as an env var.
+**TL;DR** -- Standard mode: mount the directory holding `official-mcp.enc` **read-write**, set the encryption key, and sign in on the host -- see [Standard mode](#standard-mode). Web mode: run `login --export` on the host to login and export an encrypted token file, and set `ROBINHOOD_MODE=web` in the container. Mount the file into the container **read-write** (the SDK rotates and rewrites tokens) and pass the encryption key as an env var.
 
 ---
 
@@ -51,16 +51,16 @@ A single-file mount leaves `official-mcp.enc`, which every refresh rewrites, out
 ### 1. Login and export tokens on the host
 
 ```bash
-npx robinhood-for-agents onboard
+bunx robinhood-for-agents login --export
 ```
 
-Select "Docker container / remote host" when prompted. The onboard flow will:
+It will:
 1. Open Chrome for Robinhood login (captures OAuth tokens)
 2. Encrypt tokens to a file using AES-256-GCM
 3. Copy the encryption key to the clipboard and print the env vars to set in your container config
 
-After onboard completes, you will have:
-- An encrypted token file at `./tokens.enc` — relative to wherever you ran `onboard` (this is the *export* artifact from `onboard.ts`, distinct from `EncryptedFileTokenStore`'s own built-in fallback path `~/.robinhood-for-agents/tokens.enc`, which only applies when no path or `ROBINHOOD_TOKENS_FILE` is given)
+After it completes, you will have:
+- An encrypted token file at `./tokens.enc` — relative to wherever you ran `login --export` (this is the *export* artifact from `login.ts`, distinct from `EncryptedFileTokenStore`'s own built-in fallback path `~/.robinhood-for-agents/tokens.enc`, which only applies when no path or `ROBINHOOD_TOKENS_FILE` is given)
 - A base64 encryption key
 
 ### 2. Configure your container
@@ -86,7 +86,7 @@ services:
       - ./tokens.enc:/secrets/tokens.enc:rw
 ```
 
-> **Note:** The volume must be mounted `:rw` (read-write), not `:ro`. The SDK renews the access token ahead of expiry (and again on a 401) and writes the updated tokens back to the encrypted file. Every refresh **rotates** the refresh token — Robinhood invalidates the old one the instant the new one is issued — so this file is not a cache, it is the only durable copy. With a read-only mount the running container keeps working off its in-memory token and then finds nothing valid on restart, requiring a fresh `onboard` on the host. Failed writes are logged as `CRITICAL` on stderr; alert on that line.
+> **Note:** The volume must be mounted `:rw` (read-write), not `:ro`. The SDK renews the access token ahead of expiry (and again on a 401) and writes the updated tokens back to the encrypted file. Every refresh **rotates** the refresh token — Robinhood invalidates the old one the instant the new one is issued — so this file is not a cache, it is the only durable copy. With a read-only mount the running container keeps working off its in-memory token and then finds nothing valid on restart, requiring a fresh `login --export` on the host. Failed writes are logged as `CRITICAL` on stderr; alert on that line.
 
 #### docker run
 
@@ -123,17 +123,17 @@ Robinhood enforces **single-use refresh-token rotation**: each refresh returns a
 
 A container can never re-authenticate itself: browser login needs Chrome on the host. Renewal keeps the chain alive only while the SDK is actually making requests, so a container that sits idle longer than the refresh-token lifetime will lapse and need a new token file.
 
-Symptoms: API calls raise `TokenExpiredError` ("session expired and could not be refreshed"), and `robinhood_check_session` reports `expired`. (`unknown` means a transient/network failure — retry before re-onboarding.)
+Symptoms: API calls raise `TokenExpiredError` ("session expired and could not be refreshed"), and `robinhood_check_session` reports `expired`. (`unknown` means a transient/network failure — retry before logging in again.)
 
 Recovery:
 
 ```bash
 # On the host
-npx robinhood-for-agents onboard   # re-login, re-export tokens.enc
+bunx robinhood-for-agents login --export   # re-login, re-export tokens.enc
 docker compose up -d --force-recreate agent
 ```
 
-If you rotated the encryption key during onboard, update `ROBINHOOD_TOKEN_KEY` too.
+If the encryption key changed during the export, update `ROBINHOOD_TOKEN_KEY` too.
 
 ---
 
@@ -146,7 +146,7 @@ If you rotated the encryption key during onboard, update `ROBINHOOD_TOKEN_KEY` t
 │                               │    │                                    │
 │ Keychain: has tokens (local)  │    │ ROBINHOOD_TOKENS_FILE=/secrets/... │
 │                               │    │ ROBINHOOD_TOKEN_KEY=<base64>       │
-│ onboard: login → encrypt →    │    │                                    │
+│ login --export: login →       │    │                                    │
 │   writes tokens.enc           │───>│ Volume mount: tokens.enc           │
 │                               │    │                                    │
 │                               │    │ SDK loads file → decrypts with key │
@@ -173,7 +173,7 @@ Kill the container. Once it is gone:
 To revoke immediately, delete the encrypted file on the host:
 
 ```bash
-rm ./tokens.enc   # wherever you ran `onboard` from
+rm ./tokens.enc   # wherever you ran `login --export` from
 ```
 
 Standard mode: the file is `official-mcp.enc` in the mounted directory.

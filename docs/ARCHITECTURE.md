@@ -107,13 +107,9 @@ src/server/                    <- robinhood-for-agents MCP server
 ├── official/                  <- standard mode: doc.ts (tools from docs/official-mcp-tools.json),
 │                                 auth.ts (hosted-MCP OAuth credential), forward.ts (relay to agent.robinhood.com)
 ├── cli/
-│   ├── onboard.ts            <- Interactive setup TUI (also handles Docker token export)
-│   ├── install-mcp.ts        <- Install MCP server config
-│   ├── install-skills.ts     <- Install Claude Code skills
-│   ├── install-workspace-dep.ts <- Install npm dep into agent workspaces (OpenClaw)
-│   ├── detect.ts             <- Agent detection
-│   ├── paths.ts              <- Package/bin path resolution
-│   └── agents/               <- Agent-specific config generators
+│   ├── install.ts            <- `install`: register via add-mcp library, copy skill via skills CLI
+│   ├── login.ts              <- `login [--export]`: web-mode Chrome login, Docker token export
+│   └── paths.ts              <- Package/skills path resolution
 └── tools/                     <- web mode: 59 MCP tools across 12 modules
     ├── _helpers.ts           <- result helpers, stringEnum, shared order-parameter schemas + validators
     ├── auth.ts               <- browser_login, check_session

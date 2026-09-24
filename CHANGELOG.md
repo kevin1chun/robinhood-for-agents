@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-09-24
+
+The `onboard`/`setup` commands and the `install --mcp|--skills|--mode|--agent` flags are gone, which breaks scripts that call them, so this release is a major bump.
+
+### Added
+
+- **One-command setup:** `bunx robinhood-for-agents install [-y]` picks from the detected agent apps, registers the server through the add-mcp library, and copies the skill with a pinned `skills` CLI (`--copy`, global). It generates `ROBINHOOD_TOKEN_KEY` or reuses the one already in an agent config, and optionally adds the `robinhood-web` entry.
+- OpenClaw (when `~/.openclaw` exists): `install` copies the skill and adds `robinhood-for-agents` as a dependency in `~/.openclaw/workspace`.
+- `login [--export]`: web-mode Chrome login outside an MCP client; `--export` writes `./tokens.enc` for Docker.
+
+### Changed
+
+- **BREAKING:** `onboard`/`setup` and `install --mcp|--skills|--mode|--agent` removed; use `install` and `login`. The per-agent registration code is removed.
+- `install` removes the pre-4.0 `robinhood-agent` Claude Code entry.
+- The standard-mode missing-key error now points to `install` instead of `openssl`.
+
 ## [4.0.0] - 2026-09-21
 
 The modes were renamed and the default flipped: a server started without a flag now relays Robinhood's official hosted MCP instead of calling the web API, which changes behavior for every no-flag user, so this release is a major bump.

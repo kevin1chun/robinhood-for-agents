@@ -281,7 +281,7 @@ export function createTokenStore(): TokenStore {
 }
 
 // ---------------------------------------------------------------------------
-// Legacy exports — used by browser-auth.ts (login) and onboard.ts (existing-
+// Legacy exports — used by browser-auth.ts (login) and login.ts (existing-
 // session check). Delegate to createTokenStore()'s env-aware pick, so a
 // ROBINHOOD_TOKENS_FILE-configured deployment writes/reads the file store
 // consistently everywhere, not just through an explicit `new

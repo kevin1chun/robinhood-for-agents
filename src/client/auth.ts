@@ -199,7 +199,7 @@ export async function restoreSession(
   const tokens = await store.load();
   if (!tokens) {
     throw new AuthenticationError(
-      "No tokens found. Run 'robinhood-for-agents onboard' to authenticate.",
+      "No tokens found. Run 'robinhood-for-agents login' to authenticate.",
     );
   }
 
