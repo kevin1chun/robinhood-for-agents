@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { binPath, packageRoot, skillsDir } from "../../src/server/cli/paths.js";
+import { packageRoot, skillsDir } from "../../src/server/cli/paths.js";
 
 describe("cli paths", () => {
   const tempDirs: string[] = [];
@@ -11,9 +11,7 @@ describe("cli paths", () => {
     const root = mkdtempSync(join(tmpdir(), "rh-paths-test-"));
     tempDirs.push(root);
     writeFileSync(join(root, "package.json"), "{}\n");
-    mkdirSync(join(root, "bin"), { recursive: true });
     mkdirSync(join(root, "skills"), { recursive: true });
-    writeFileSync(join(root, "bin", "robinhood-for-agents.ts"), "");
     return root;
   }
 
@@ -40,20 +38,5 @@ describe("cli paths", () => {
 
     expect(skillsDir(root)).toBe(join(root, "skills"));
     expect(existsSync(skillsDir(root))).toBe(true);
-  });
-
-  it("uses the source TypeScript bin before the package is built", () => {
-    const root = makePackageRoot();
-
-    expect(binPath(root)).toBe(join(root, "bin", "robinhood-for-agents.ts"));
-  });
-
-  it("uses the compiled JavaScript bin when the package has been built", () => {
-    const root = makePackageRoot();
-    const compiledBin = join(root, "dist", "bin", "robinhood-for-agents.js");
-    mkdirSync(join(root, "dist", "bin"), { recursive: true });
-    writeFileSync(compiledBin, "");
-
-    expect(binPath(root)).toBe(compiledBin);
   });
 });

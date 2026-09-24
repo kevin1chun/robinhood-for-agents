@@ -11,73 +11,27 @@ An MCP server that lets your AI agent read and trade your Robinhood account, in 
 - **Standard mode (default):** Robinhood's official hosted Trading MCP, 82 tools; orders reach your Agentic account.
 - **Web mode:** the unofficial web API robinhood.com uses, 59 tools, every brokerage account.
 
-Also included: a TypeScript client library (82 async methods) and a trading skill for Claude Code and OpenClaw. Works with Claude Code, Codex, Cursor, Antigravity, Hermes, and any other MCP client; OpenClaw uses the skill.
+Also included: a TypeScript client library (82 async methods) and a trading skill for agent apps that support skills. Works with Claude Code, Codex, Cursor, Antigravity, Hermes, and any other MCP client; OpenClaw uses the skill.
 
 ## Quick start
 
-1. Generate `ROBINHOOD_TOKEN_KEY`, the key that encrypts the standard-mode credential:
+1. Run the installer. Needs [Bun](https://bun.sh/) v1.3+.
 
    ```bash
-   openssl rand -base64 32
+   bunx robinhood-for-agents install
    ```
 
-2. Register the server with your client. All need [Bun](https://bun.sh/) v1.3+. Standard mode is the default; `robinhood-web` is the optional web-mode entry.
+   It detects your agent apps and asks which to configure and whether to add web mode, then registers the server with a generated `ROBINHOOD_TOKEN_KEY` (reused on re-runs) and copies the trading skill into each app that supports skills. Manual setup instead: `npx -y add-mcp "bunx robinhood-for-agents" -g -n robinhood-for-agents --env "ROBINHOOD_TOKEN_KEY=<32-byte base64 key>"` plus `npx skills add kevin1chun/robinhood-for-agents`.
 
-   <details>
-   <summary>Claude Code</summary>
-
-   ```bash
-   claude mcp add -s user robinhood-for-agents -e ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents
-   claude mcp add -s user robinhood-web -- bunx robinhood-for-agents --mode web   # optional
-   cd your-project && npx robinhood-for-agents install --skills                   # optional per-project skills
-   ```
-   </details>
-
-   <details>
-   <summary>Codex</summary>
-
-   ```bash
-   codex mcp add robinhood-for-agents --env ROBINHOOD_TOKEN_KEY=<base64 key> -- bunx robinhood-for-agents
-   codex mcp add robinhood-web -- bunx robinhood-for-agents --mode web   # optional
-   ```
-   </details>
+   Other clients:
 
    <details>
    <summary>OpenClaw</summary>
 
-   Web mode only: the skill calls the client library through `bun`, with no MCP server.
+   Web mode only: the skill calls the client library through `bun`, with no MCP server. `bunx robinhood-for-agents install` covers it when `~/.openclaw` exists (as "OpenClaw (skill only)": the skill plus `robinhood-for-agents` in `~/.openclaw/workspace`). Alternative:
 
    ```bash
-   clawhub install robinhood-for-agents            # via ClawHub (recommended)
-   robinhood-for-agents onboard --agent openclaw   # via the onboard CLI
-   ```
-
-   Both install the skill to `~/.openclaw/workspace/skills/`.
-   </details>
-
-   <details>
-   <summary>Cursor, Antigravity, Claude Desktop, other JSON clients</summary>
-
-   Add to your client's config file, keeping the entries for the modes you use:
-
-   - Cursor: `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project).
-   - Antigravity: `~/.gemini/config/mcp_config.json` (global, shared by the IDE and CLI) or `.agents/mcp_config.json` (workspace); in the IDE, agent panel **…** → **MCP Servers** → **Manage MCP Servers** → **View raw config**.
-   - Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`.
-
-   ```json
-   {
-     "mcpServers": {
-       "robinhood-for-agents": {
-         "command": "bunx",
-         "args": ["robinhood-for-agents"],
-         "env": { "ROBINHOOD_TOKEN_KEY": "<base64 key>" }
-       },
-       "robinhood-web": {
-         "command": "bunx",
-         "args": ["robinhood-for-agents", "--mode", "web"]
-       }
-     }
-   }
+   clawhub install robinhood-for-agents
    ```
    </details>
 
@@ -92,16 +46,14 @@ Also included: a TypeScript client library (82 async methods) and a trading skil
        command: "bunx"
        args: ["robinhood-for-agents"]
        env:
-         ROBINHOOD_TOKEN_KEY: "<base64 key>"
+         ROBINHOOD_TOKEN_KEY: "<any 32-byte base64 key, e.g. from the installer's config entry>"
      robinhood-web:
        command: "bunx"
        args: ["robinhood-for-agents", "--mode", "web"]
    ```
    </details>
 
-   From a source checkout, replace `bunx robinhood-for-agents` with `bun run /path/to/checkout/bin/robinhood-for-agents.ts`.
-
-3. Restart the client, ask your agent to run `robinhood_official_login`, and approve once in the browser. Then prompt it: "show my portfolio". Without `ROBINHOOD_TOKEN_KEY`, every standard-mode tool answers an error saying so.
+2. Restart the app and ask your agent to "log in to Robinhood"; approve once in the browser. Then prompt it: "show my portfolio".
 
 ## Choosing a mode
 
@@ -111,16 +63,17 @@ Use standard mode unless you need something only web mode has. It is the surface
 
 ## Install
 
-Prerequisites: [Bun](https://bun.sh/) v1.3+ and a Robinhood account. Standard mode needs `ROBINHOOD_TOKEN_KEY`, and its sign-in opens your browser with the macOS `open` command. Web mode needs Google Chrome for login (`playwright-core`, `channel: "chrome"`; no bundled browser, Brave/Chromium fallback, or `BROWSER_PATH` override).
+Prerequisites: [Bun](https://bun.sh/) v1.3+ and a Robinhood account. Standard mode needs `ROBINHOOD_TOKEN_KEY` (the installer sets it), and its sign-in opens your browser with the macOS `open` command. Web mode needs Google Chrome for login (`playwright-core`, `channel: "chrome"`; no bundled browser, Brave/Chromium fallback, or `BROWSER_PATH` override).
 
-### Guided setup
+### Setup commands
 
 ```bash
-npx robinhood-for-agents onboard
-npx robinhood-for-agents onboard --agent claude-code   # or codex, openclaw
+bunx robinhood-for-agents install      # pick apps, register the server, copy the skill; -y takes every detected app, standard mode only
+bunx robinhood-for-agents login        # web-mode Chrome login outside an MCP client
+bunx robinhood-for-agents login --export   # also writes ./tokens.enc for Docker
 ```
 
-It asks for your agent (and, for Claude Code and Codex, the mode), registers the server, and installs skills where supported. In web mode it also runs the Chrome login and asks whether the agent runs locally or in Docker. Neither `onboard` nor `install` sets `ROBINHOOD_TOKEN_KEY`, so for standard mode use the [Quick start](#quick-start) command.
+`install` registers entries through the [add-mcp](https://github.com/neondatabase/add-mcp) library (supported apps: `npx add-mcp list-agents`) and copies the skill with the [skills](https://github.com/vercel-labs/skills) CLI. It overwrites existing `robinhood-for-agents`/`robinhood-web` entries and keeps the `ROBINHOOD_TOKEN_KEY` already in them.
 
 ### From source
 
@@ -128,18 +81,19 @@ It asks for your agent (and, for Claude Code and Codex, the mode), registers the
 git clone https://github.com/kevin1chun/robinhood-for-agents.git
 cd robinhood-for-agents
 bun install
-bun run onboard
 bun bin/robinhood-for-agents.ts   # standard mode; add --mode web for web mode
 ```
+
+To register a checkout, pass `"bun run /path/to/checkout/bin/robinhood-for-agents.ts"` as the add-mcp target in the manual setup line.
 
 **What each client gets:**
 
 | Feature | Claude Code | Codex | OpenClaw | Cursor | Antigravity | Hermes | Other MCP |
 |---------|:-----------:|:-----:|:--------:|:------:|:-----------:|:------:|:---------:|
 | MCP tools (both modes) | Yes | Yes | — | Yes | Yes | Yes | Yes |
-| Trading skill | Yes | — | Yes | — | — | — | — |
+| Trading skill | Yes | Yes | Yes | Yes | Yes | — | — |
 | ClawHub install | — | — | Yes | — | — | — | — |
-| `onboard` setup | Yes | Yes | Yes | — | — | — | — |
+| `install` setup | Yes | Yes | Yes | Yes | Yes | — | [add-mcp list](https://github.com/neondatabase/add-mcp) |
 | Browser auth | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 
 ## Sign in
@@ -278,7 +232,7 @@ Web mode only; there is no client-library path to the hosted MCP. All 82 methods
 Without a keychain or browser, both modes keep their credential in an encrypted file under `ROBINHOOD_TOKEN_KEY` and sign in on the host.
 
 - **Standard:** `official-mcp.enc` lives beside `ROBINHOOD_TOKENS_FILE`, so mount the directory, not the file ([docs/DOCKER.md](docs/DOCKER.md#standard-mode)).
-- **Web:** run `npx robinhood-for-agents onboard` on the host and pick "Docker container / remote host". It exports `./tokens.enc`, copies the key to the clipboard, and prints the env vars, including `ROBINHOOD_MODE=web` ([docs/DOCKER.md](docs/DOCKER.md#web-mode)).
+- **Web:** run `bunx robinhood-for-agents login --export` on the host. It exports `./tokens.enc`, copies the key to the clipboard, and prints the env vars, including `ROBINHOOD_MODE=web` ([docs/DOCKER.md](docs/DOCKER.md#web-mode)).
 
 Keep the mount read-write and use one process per token file: refresh tokens are single-use, and a failed write-back logs `CRITICAL` to stderr and strands the container on restart. Encryption stops casual disk access, not an agent with shell access that can read the key, so run only agents you trust ([docs/SECURITY.md](docs/SECURITY.md)).
 
@@ -303,7 +257,7 @@ bun run check                  # Biome lint + format
 npx vitest run                 # all tests — vitest, not `bun test`
 ```
 
-Integration tests (read-only, real API, not in CI): `npx robinhood-for-agents onboard`, then `bun run test:integration`. Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Adding tools and skills: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+Integration tests (read-only, real API, not in CI): `bunx robinhood-for-agents login`, then `bun run test:integration`. Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Adding tools and skills: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Disclaimer
 
