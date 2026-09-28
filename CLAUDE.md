@@ -4,7 +4,7 @@ AI-native Robinhood trading interface — MCP server + TypeScript client library
 
 ## Project Structure
 - `src/client/` — Robinhood API client (82 async methods)
-- `src/server/` — MCP server, one mode per process: standard (82 tools, `src/server/official/`, the default) or web (59 tools, `src/server/tools/`); official tools: `docs/official-mcp-tools.json` (the hosted server's tools/list, `bun run refresh-official-tools`); parity table: `docs/official-mcp-tools.md`
+- `src/server/` — MCP server, one mode per process: standard (77 tools, `src/server/official/`, the default) or web (59 tools, `src/server/tools/`); official tools: `docs/official-mcp-tools.json` (the hosted server's tools/list, `bun run refresh-official-tools`); parity table: `docs/official-mcp-tools.md`
 - `bin/` — CLI entry point (`robinhood-for-agents`)
 - `src/server/cli/` — `install` (add-mcp library registers the server, pinned `skills` CLI copies the skill; generates or reuses `ROBINHOOD_TOKEN_KEY`) and `login` (web-mode Chrome login, `--export` for Docker)
 - `skills/` — Claude Code skills for interactive use
@@ -26,7 +26,7 @@ bun bin/robinhood-for-agents.ts --mode web     # web mode (or ROBINHOOD_MODE=web
 ```
 **Web mode** registers the 59 tools of `src/server/tools/*.ts`, which call `api.robinhood.com` through `src/client/` under the Chrome browser session; every account.
 
-**Standard mode** registers the 81 official tools plus `robinhood_official_login` (`src/server/official/forward.ts`, title, description, schemas and annotations read verbatim from `docs/official-mcp-tools.json` at startup), each relayed unchanged to `agent.robinhood.com/mcp/trading`; no web-API code path. The modes never mix in one process; running both is two client entries (`robinhood-for-agents` standard, `robinhood-web` web).
+**Standard mode** registers the 76 official tools plus `robinhood_official_login` (`src/server/official/forward.ts`, title, description, schemas and annotations read verbatim from `docs/official-mcp-tools.json` at startup), each relayed unchanged to `agent.robinhood.com/mcp/trading`; no web-API code path. The modes never mix in one process; running both is two client entries (`robinhood-for-agents` standard, `robinhood-web` web).
 
 ## Development
 ```bash

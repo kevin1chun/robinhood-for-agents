@@ -17,7 +17,7 @@ vi.mock("../../src/server/official/doc.js", async (importOriginal) => {
   const real = await importOriginal<typeof import("../../src/server/official/doc.js")>();
   const fixture: Record<string, object> = {
     get_financials: { readOnlyHint: true },
-    place_advanced_order: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+    place_equity_order: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
   };
   const tools = new Map(
     [...real.officialTools()].map(([name, { annotations: _, ...t }]) => [
@@ -54,7 +54,7 @@ const SIGNED_IN = memoryStore({
   expires_at: Date.now() / 1000 + 86_400,
 });
 
-/** An upstream serving get_financials, get_equity_quotes and place_advanced_order with the doc schemas. */
+/** An upstream serving get_financials, get_equity_quotes and place_equity_order with the doc schemas. */
 function fakeUpstream() {
   const calls: Array<{ name: string; args: unknown }> = [];
   const official = officialTools();
@@ -82,10 +82,10 @@ function fakeUpstream() {
     },
   );
   server.registerTool(
-    "place_advanced_order",
-    { inputSchema: z.fromJSONSchema(official.get("place_advanced_order")?.inputSchema as never) },
+    "place_equity_order",
+    { inputSchema: z.fromJSONSchema(official.get("place_equity_order")?.inputSchema as never) },
     async (args: unknown) => {
-      calls.push({ name: "place_advanced_order", args });
+      calls.push({ name: "place_equity_order", args });
       return { content: [{ type: "text", text: "REJECTED: market closed" }], isError: true };
     },
   );
@@ -124,14 +124,14 @@ describe("standard mode relays official tools", () => {
     const { upstream } = fakeUpstream();
     const client = await fork(upstream, SIGNED_IN);
     const r = (await client.callTool({
-      name: "robinhood_place_advanced_order",
+      name: "robinhood_place_equity_order",
       arguments: {
         account_number: "ACCOUNT_ID",
         symbol: "AAPL",
         side: "sell",
+        type: "limit",
         quantity: "1",
-        take_profit_limit_price: "250",
-        stop_loss_stop_price: "200",
+        limit_price: "250",
       },
     })) as Result;
     expect(r.isError).toBe(true);
@@ -158,14 +158,14 @@ describe("standard mode relays official tools", () => {
     const client = await fork({ connect: async () => broken }, SIGNED_IN);
 
     const place = (await client.callTool({
-      name: "robinhood_place_advanced_order",
+      name: "robinhood_place_equity_order",
       arguments: {
         account_number: "ACCOUNT_ID",
         symbol: "AAPL",
         side: "sell",
+        type: "limit",
         quantity: "1",
-        take_profit_limit_price: "250",
-        stop_loss_stop_price: "200",
+        limit_price: "250",
       },
     })) as Result;
     expect(callTool).toHaveBeenCalledTimes(1);

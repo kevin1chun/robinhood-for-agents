@@ -337,7 +337,7 @@ export function registerStockTools(server: McpServer): void {
         cursor: z
           .string()
           .optional()
-          .describe("Accepted for parity; results are complete, so next_cursor is always null."),
+          .describe("Accepted; results are complete, so next_cursor is always null."),
       },
       outputSchema: {
         news: z.unknown(),

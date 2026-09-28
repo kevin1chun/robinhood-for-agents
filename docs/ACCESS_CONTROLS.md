@@ -28,7 +28,7 @@ All data retrieval operations. No financial impact.
 | Realized P&L (read, computed) | `robinhood_get_realized_pnl`, `robinhood_get_pnl_trade_history` | via skill |
 | Tax Lots (read) | `robinhood_get_equity_tax_lots` | via skill |
 | Order Review (read, simulation) | `robinhood_review_equity_order`, `robinhood_review_option_order`, `robinhood_preview_crypto_order` | `trade.md` |
-| Standard-mode reads | `robinhood_get_advanced_orders`, `robinhood_review_advanced_order`, `robinhood_get_alerts`, `robinhood_get_alert_log`, `robinhood_get_scanner_datapoints`, `robinhood_preview_scan`, `robinhood_run_scan`, `robinhood_get_sec_filing`, `robinhood_get_sec_filing_facts`, `robinhood_get_sec_filing_facts_catalog`, `robinhood_get_sec_filing_index`, `robinhood_get_financials`, `robinhood_get_politician_trades`, `robinhood_get_index_historicals`, `robinhood_get_option_level_upgrade_info`, `robinhood_get_limited_margin_upgrade_info`, `robinhood_get_crypto_account_onboarding_info` | - |
+| Standard-mode reads | `robinhood_get_alerts`, `robinhood_get_alert_log`, `robinhood_get_scanner_datapoints`, `robinhood_preview_scan`, `robinhood_run_scan`, `robinhood_get_sec_filing`, `robinhood_get_sec_filing_facts`, `robinhood_get_sec_filing_facts_catalog`, `robinhood_get_sec_filing_index`, `robinhood_get_financials`, `robinhood_get_politician_trades`, `robinhood_get_index_historicals`, `robinhood_get_option_level_upgrade_info`, `robinhood_get_limited_margin_upgrade_info`, `robinhood_get_crypto_account_onboarding_info` | - |
 
 ### Medium Risk
 Operations with limited financial impact or credential exposure. Includes **reversible, non-financial writes** (watchlist mutations): confirm-before-calling, single-target/single-operation, no order surface.
@@ -41,7 +41,7 @@ Operations with limited financial impact or credential exposure. Includes **reve
 | Watchlist Create/Update | `robinhood_create_watchlist`, `robinhood_update_watchlist` | via skill |
 | Watchlist Follow/Unfollow | `robinhood_follow_watchlist`, `robinhood_unfollow_watchlist` | via skill |
 | Options Watchlist Add/Remove | `robinhood_add_option_to_watchlist`, `robinhood_remove_option_from_watchlist` | via skill |
-| Advanced Order / Exercise Cancel (standard mode) | `robinhood_cancel_advanced_order`, `robinhood_cancel_option_exercise` | - |
+| Exercise Cancel (standard mode) | `robinhood_cancel_option_exercise` | - |
 | Alerts (standard mode) | `robinhood_create_alert`, `robinhood_update_alert`, `robinhood_delete_alert`, `robinhood_mark_alerts_read` | - |
 | Scanner Writes (standard mode) | `robinhood_create_scan`, `robinhood_update_scan_config`, `robinhood_update_scan_filters` | - |
 
@@ -54,7 +54,6 @@ Order placement. Account, symbol (or legs), side, and order type are always expl
 | Short Sales | `robinhood_place_equity_order` (`side: "sell_short"`) | `trade.md` |
 | Option Orders | `robinhood_place_option_order` | `trade.md` |
 | Crypto Orders | `robinhood_place_crypto_order` | `trade.md` |
-| OCO Orders (standard mode, Agentic account only) | `robinhood_place_advanced_order` | - |
 | Option Exercise (standard mode, Agentic account only) | `robinhood_exercise_option` | - |
 
 Short sales sit at the top of this tier: losses are theoretically unbounded, and "sell" in a user's request almost always means *close my position*. Opening a short therefore requires its own side value (`sell_short`) rather than being inferred from an account holding no shares, so a mis-parsed "sell" fails with `Not enough shares to sell.` instead of silently opening a short. The skill requires the confirmation to be labelled **SHORT SELL**.

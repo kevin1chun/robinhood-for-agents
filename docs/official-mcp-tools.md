@@ -1,4 +1,6 @@
-Official Robinhood Trading MCP (https://agent.robinhood.com/mcp/trading): its measured rate limit and the fork's parity with its 81 tools. The tools themselves, every field the server's `tools/list` answers, are [`official-mcp-tools.json`](official-mcp-tools.json), rewritten by `bun run refresh-official-tools` after `robinhood_official_login`. Source of truth for parity.
+Official Robinhood Trading MCP (https://agent.robinhood.com/mcp/trading): its measured rate limit and the fork's parity with its 76 tools. The tools themselves, every field the server's `tools/list` answers, are [`official-mcp-tools.json`](official-mcp-tools.json), rewritten by `bun run refresh-official-tools` after `robinhood_official_login`. Source of truth for parity.
+
+2026-09-28: five tools the server dropped were filtered out by hand; the other 76 schemas matched a live capture that day.
 
 > **Scope:** both modes — the Parity table says which tools each mode serves; the rate limit is the hosted server's, so it applies to standard mode. Which mode: [MODES.md](MODES.md).
 
@@ -56,7 +58,6 @@ Fork tool per official tool. `same`, `renamed` and `new` are served by the web A
 |---|---|---|---|
 | `add_option_to_watchlist` | `robinhood_add_option_to_watchlist` | same | Long only; `position_type: "short"` is rejected (short-leg write unverified). |
 | `add_to_watchlist` | `robinhood_add_to_watchlist` | same |  |
-| `cancel_advanced_order` | `robinhood_cancel_advanced_order` | standard-only |  |
 | `cancel_crypto_order` | `robinhood_cancel_crypto_order` | renamed |  |
 | `cancel_equity_order` | `robinhood_cancel_equity_order` | renamed | Checks the order's account first. |
 | `cancel_option_exercise` | `robinhood_cancel_option_exercise` | standard-only |  |
@@ -68,7 +69,6 @@ Fork tool per official tool. `same`, `renamed` and `new` are served by the web A
 | `exercise_option` | `robinhood_exercise_option` | standard-only |  |
 | `follow_watchlist` | `robinhood_follow_watchlist` | same |  |
 | `get_accounts` | `robinhood_get_accounts` | same | `rhs_account_number` is scrubbed from the result. |
-| `get_advanced_orders` | `robinhood_get_advanced_orders` | standard-only |  |
 | `get_alert_log` | `robinhood_get_alert_log` | standard-only |  |
 | `get_alerts` | `robinhood_get_alerts` | standard-only |  |
 | `get_crypto_account_onboarding_info` | `robinhood_get_crypto_account_onboarding_info` | standard-only |  |
@@ -81,7 +81,6 @@ Fork tool per official tool. `same`, `renamed` and `new` are served by the web A
 | `get_equity_analyst_ratings` | `robinhood_get_equity_analyst_ratings` | standard-only |  |
 | `get_equity_fundamentals` | `robinhood_get_equity_fundamentals` | renamed | `bounds` regular only. |
 | `get_equity_historicals` | `robinhood_get_equity_historicals` | renamed | [start, end] mapped onto the REST span grid; `adjustment_type` split only. |
-| `get_equity_news` | `robinhood_get_equity_news` | renamed | Also returns analyst ratings. |
 | `get_equity_orders` | `robinhood_get_equity_orders` | renamed |  |
 | `get_equity_positions` | `robinhood_get_equity_positions` | same | Non-zero positions; complete, `next_cursor` null. |
 | `get_equity_price_book` | `robinhood_get_equity_price_book` | same |  |
@@ -117,7 +116,6 @@ Fork tool per official tool. `same`, `renamed` and `new` are served by the web A
 | `get_watchlist_items` | `robinhood_get_watchlist_items` | same |  |
 | `get_watchlists` | `robinhood_get_watchlists` | same |  |
 | `mark_alerts_read` | `robinhood_mark_alerts_read` | standard-only |  |
-| `place_advanced_order` | `robinhood_place_advanced_order` | standard-only |  |
 | `place_crypto_order` | `robinhood_place_crypto_order` | same | market and limit only; `stop_loss`, `stop_limit`, `tax_lots` rejected. |
 | `place_equity_order` | `robinhood_place_equity_order` | renamed | `dollar_amount` and `tax_lots` rejected. |
 | `place_option_order` | `robinhood_place_option_order` | same | limit and stop_limit, regular_hours only; market types rejected. |
@@ -125,7 +123,6 @@ Fork tool per official tool. `same`, `renamed` and `new` are served by the web A
 | `preview_scan` | `robinhood_preview_scan` | standard-only |  |
 | `remove_from_watchlist` | `robinhood_remove_from_watchlist` | same |  |
 | `remove_option_from_watchlist` | `robinhood_remove_option_from_watchlist` | same | Long only. |
-| `review_advanced_order` | `robinhood_review_advanced_order` | standard-only |  |
 | `review_equity_order` | `robinhood_review_equity_order` | same | Reproduces the price collar only; `dollar_amount` and `tax_lots` rejected. |
 | `review_option_order` | `robinhood_review_option_order` | same | Per-leg market data + chain collateral; thin check set. |
 | `run_scan` | `robinhood_run_scan` | standard-only |  |

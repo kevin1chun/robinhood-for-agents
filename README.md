@@ -8,7 +8,7 @@
 
 An MCP server that lets your AI agent read and trade your Robinhood account, in one of two modes:
 
-- **Standard mode (default):** Robinhood's official hosted Trading MCP, 82 tools; orders reach your Agentic account.
+- **Standard mode (default):** Robinhood's official hosted Trading MCP, 77 tools; orders reach your Agentic account.
 - **Web mode:** the unofficial web API robinhood.com uses, 59 tools, every brokerage account.
 
 Also included: a TypeScript client library (82 async methods) and a trading skill for agent apps that support skills. Works with Claude Code, Codex, Cursor, Antigravity, Hermes, and any other MCP client; OpenClaw uses the skill.
@@ -57,9 +57,9 @@ Also included: a TypeScript client library (82 async methods) and a trading skil
 
 ## Choosing a mode
 
-Use standard mode unless you need something only web mode has. It is the surface Robinhood supports for agents: the 81 official tools, with Robinhood's own titles, descriptions, schemas, and annotations, each call relayed unchanged to `agent.robinhood.com/mcp/trading`. Orders reach your Agentic account only; other accounts are read-only. Web mode trades that for reach: it calls the web API robinhood.com itself uses, serves every brokerage account, and backs the client library, but Robinhood does not sanction it for agents.
+Use standard mode unless you need something only web mode has. It is the surface Robinhood supports for agents: the 76 official tools, with Robinhood's own titles, descriptions, schemas, and annotations, each call relayed unchanged to `agent.robinhood.com/mcp/trading`. Orders reach your Agentic account only; other accounts are read-only. Web mode trades that for reach: it calls the web API robinhood.com itself uses, serves every brokerage account, and backs the client library, but Robinhood does not sanction it for agents.
 
-29 tools exist only in standard mode, 7 only in web mode; the Mode column in [Tools](#tools) says which, and [docs/MODES.md](docs/MODES.md) has the full comparison. To run both, register both entries, `robinhood-for-agents` and `robinhood-web`. Tool names match, so your agent tells them apart by entry; the credentials are separate.
+25 tools exist only in standard mode, 8 only in web mode; the Mode column in [Tools](#tools) says which, and [docs/MODES.md](docs/MODES.md) has the full comparison. To run both, register both entries, `robinhood-for-agents` and `robinhood-web`. Tool names match, so your agent tells them apart by entry; the credentials are separate.
 
 ## Install
 
@@ -140,7 +140,7 @@ Names and input schemas are the official ones, prefixed `robinhood_` ([parity ta
 | `robinhood_get_short_interest` | web | Daily short-interest estimate (% of float, with bounds) |
 | `robinhood_get_equity_price_book` | both | Level-2 price book (bid/ask depth) |
 | `robinhood_get_equity_tradability` | both | Tradability flags (fractional, short-selling, per-account type) |
-| `robinhood_get_equity_news` | both | News and analyst ratings |
+| `robinhood_get_equity_news` | web | News and analyst ratings |
 | `robinhood_get_earnings_results` | both | Earnings for a symbol (EPS estimate vs. actual) |
 | `robinhood_get_earnings_calendar` | both | Market-wide earnings calendar for a day window |
 | `robinhood_search` | both | Search stocks/ETFs, crypto pairs, or indexes |
@@ -186,7 +186,7 @@ Names and input schemas are the official ones, prefixed `robinhood_` ([parity ta
 | `robinhood_get_realized_pnl` | both | Realized P&L over a window, bucketed (computed FIFO; equity + crypto) |
 | `robinhood_get_pnl_trade_history` | both | Per-trade realized P&L (computed FIFO; equity + crypto) |
 | `robinhood_official_login` | standard | Sign in to Robinhood's hosted MCP (browser) |
-| `robinhood_cancel_advanced_order`, `robinhood_cancel_option_exercise`, `robinhood_create_alert`, `robinhood_create_scan`, `robinhood_delete_alert`, `robinhood_exercise_option`, `robinhood_get_advanced_orders`, `robinhood_get_alert_log`, `robinhood_get_alerts`, `robinhood_get_crypto_account_onboarding_info`, `robinhood_get_equity_analyst_ratings`, `robinhood_get_financials`, `robinhood_get_index_historicals`, `robinhood_get_limited_margin_upgrade_info`, `robinhood_get_option_level_upgrade_info`, `robinhood_get_politician_trades`, `robinhood_get_scanner_datapoints`, `robinhood_get_sec_filing`, `robinhood_get_sec_filing_facts`, `robinhood_get_sec_filing_facts_catalog`, `robinhood_get_sec_filing_index`, `robinhood_mark_alerts_read`, `robinhood_place_advanced_order`, `robinhood_preview_scan`, `robinhood_review_advanced_order`, `robinhood_run_scan`, `robinhood_update_alert`, `robinhood_update_scan_config`, `robinhood_update_scan_filters` | standard | No web endpoint: advanced (OCO) orders, option exercise, alerts, scanner writes and datapoints, financials, SEC filings, politician trades, index historicals, onboarding and upgrade info |
+| `robinhood_cancel_option_exercise`, `robinhood_create_alert`, `robinhood_create_scan`, `robinhood_delete_alert`, `robinhood_exercise_option`, `robinhood_get_alert_log`, `robinhood_get_alerts`, `robinhood_get_crypto_account_onboarding_info`, `robinhood_get_equity_analyst_ratings`, `robinhood_get_financials`, `robinhood_get_index_historicals`, `robinhood_get_limited_margin_upgrade_info`, `robinhood_get_option_level_upgrade_info`, `robinhood_get_politician_trades`, `robinhood_get_scanner_datapoints`, `robinhood_get_sec_filing`, `robinhood_get_sec_filing_facts`, `robinhood_get_sec_filing_facts_catalog`, `robinhood_get_sec_filing_index`, `robinhood_mark_alerts_read`, `robinhood_preview_scan`, `robinhood_run_scan`, `robinhood_update_alert`, `robinhood_update_scan_config`, `robinhood_update_scan_filters` | standard | No web endpoint: option exercise, alerts, scanner writes and datapoints, financials, SEC filings, politician trades, index historicals, onboarding and upgrade info |
 
 ## Placing orders
 

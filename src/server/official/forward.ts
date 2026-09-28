@@ -1,4 +1,4 @@
-/** The 81 official tools, relayed to Robinhood's hosted MCP (standard mode). */
+/** The 76 official tools, relayed to Robinhood's hosted MCP (standard mode). */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";

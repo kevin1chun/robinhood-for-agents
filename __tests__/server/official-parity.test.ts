@@ -1,7 +1,7 @@
 /**
  * Parity with the official Robinhood Trading MCP. Reads the official tools from
  * docs/official-mcp-tools.json and the Parity table from docs/official-mcp-tools.md.
- * Standard mode (all 81) lists each tool's title, description and annotations verbatim and its
+ * Standard mode (all 76) lists each tool's title, description and annotations verbatim and its
  * input and output schemas; web mode (all but the standard-only rows) its input schema.
  * A schema is compared by property names, required set, enum values, and primitive type,
  * recursively. Nullability is ignored (the official schemas mark optional arrays nullable).
@@ -107,19 +107,19 @@ const webServed = [...status].filter(([, s]) => s !== "standard-only").map(([n])
 const standardOnly = [...status].filter(([, s]) => s === "standard-only").map(([n]) => n);
 
 describe("official MCP parity", () => {
-  it("the Parity table covers all 81 official tools", () => {
-    expect(official.size).toBe(81);
+  it("the Parity table covers all 76 official tools", () => {
+    expect(official.size).toBe(76);
     expect([...status.keys()].sort()).toEqual([...official.keys()].sort());
   });
 
-  it("every status is known; 29 are standard-only", () => {
+  it("every status is known; 25 are standard-only", () => {
     expect(
       [...status.values()].filter((s) => !["same", "renamed", "new", "standard-only"].includes(s)),
     ).toEqual([]);
-    expect(standardOnly).toHaveLength(29);
+    expect(standardOnly).toHaveLength(25);
   });
 
-  it("standard mode lists exactly the 81 official tools plus robinhood_official_login", () => {
+  it("standard mode lists exactly the 76 official tools plus robinhood_official_login", () => {
     expect([...standard.keys()].sort()).toEqual(
       [...[...official.keys()].map((n) => `robinhood_${n}`), "robinhood_official_login"].sort(),
     );
