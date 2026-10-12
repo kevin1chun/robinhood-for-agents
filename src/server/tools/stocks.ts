@@ -150,9 +150,13 @@ export function registerStockTools(server: McpServer): void {
     {
       title: "Get Equity Technical Indicators",
       description:
-        "Compute a technical indicator (sma, ema, rsi, momentum, roc, cci, williams_r, atr, mfi, adx, donchian_channels, bollinger_bands, macd, keltner_channels, supertrend, vwap, obv, pivot_points) over one stock's bars in [start_time, end_time]. Computed by this server from the same REST bars robinhood_get_equity_historicals returns (bars before start_time in the fetched span serve as warm-up). Parameters a type does not accept are rejected; omitted ones take the type's default (see each parameter).",
+        "Compute a technical indicator (sma, ema, rsi, momentum, roc, cci, williams_r, atr, mfi, adx, donchian_channels, bollinger_bands, macd, keltner_channels, supertrend, vwap, obv, pivot_points) over the bars of up to 10 stocks in [start_time, end_time]. Computed by this server from the same REST bars robinhood_get_equity_historicals returns (bars before start_time in the fetched span serve as warm-up). Parameters a type does not accept are rejected; omitted ones take the type's default (see each parameter).",
       inputSchema: {
-        symbol: z.string().describe("Stock symbol."),
+        symbols: z
+          .array(z.string())
+          .nullish()
+          .describe("Stock symbols, up to 10. Pass either symbols or symbol, not both."),
+        symbol: z.string().optional().describe("Deprecated: use symbols. One stock symbol."),
         type: stringEnum(INDICATOR_TYPES).describe("Indicator to compute."),
         interval: z
           .string()
@@ -187,12 +191,21 @@ export function registerStockTools(server: McpServer): void {
           .describe("'series' (default), 'latest', or 'last:N' — trims the response only."),
       },
       outputSchema: {
-        symbol: z.string(),
-        type: z.string(),
-        interval: z.string(),
-        bounds: z.string(),
-        params: z.looseObject({}),
-        series: z.array(z.looseObject({ begins_at: z.string() })),
+        results: z.array(
+          z.object({
+            symbol: z.string(),
+            interval: z.string(),
+            bounds: z.string(),
+            indicators: z.array(
+              z.object({
+                type: z.string(),
+                params: z.looseObject({}),
+                series: z.array(z.looseObject({ begins_at: z.string() })),
+              }),
+            ),
+          }),
+        ),
+        not_found: z.array(z.string()).optional(),
       },
       annotations: READ_ONLY,
     },
@@ -202,6 +215,13 @@ export function registerStockTools(server: McpServer): void {
           return textError(
             `adjustment_type "${args.adjustment_type}" is not available; omit it or pass "split".`,
           );
+        }
+        if ((args.symbols == null) === (args.symbol === undefined)) {
+          return textError("Pass exactly one of symbols or symbol.");
+        }
+        const symbols = upper(args.symbols ?? [args.symbol as string]);
+        if (symbols.length < 1 || symbols.length > 10) {
+          return textError(`symbols takes 1 to 10 symbols, got ${symbols.length}.`);
         }
         const keep = parseOutput(args.output);
         const params = resolveParams(args.type, {
@@ -215,38 +235,51 @@ export function registerStockTools(server: McpServer): void {
         });
         const w = resolveWindow(args.start_time, args.end_time, args.interval);
         const bounds = args.bounds ?? "regular";
-        const symbol = args.symbol.trim().toUpperCase();
         const rh = await getAuthenticatedRh();
-        const [data] = await rh.getStockHistoricals([symbol], {
+        const data = await rh.getStockHistoricals(symbols, {
           interval: w.interval,
           span: w.span,
           bounds,
         });
-        const bars: Bar[] = (data?.historicals ?? [])
-          .filter((b) => Date.parse(b.begins_at) <= w.endMs && b.close_price != null)
-          .map((b) => ({
-            begins_at: b.begins_at,
-            open: Number(b.open_price),
-            high: Number(b.high_price),
-            low: Number(b.low_price),
-            close: Number(b.close_price),
-            volume: b.volume ?? 0,
-          }));
-        const values = compute(args.type, bars, params);
-        const series = bars
-          .map((b, i) => ({
-            begins_at: b.begins_at,
-            ...Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v[i] ?? null])),
-          }))
-          .filter((p) => Date.parse(p.begins_at) >= w.startMs);
-        return structured({
-          symbol,
-          type: args.type,
-          interval: w.interval,
-          bounds,
-          params,
-          series: keep === undefined ? series : series.slice(-keep),
-        });
+        const results = [];
+        const notFound = [];
+        for (const symbol of symbols) {
+          const raw = data.find((d) => d.symbol === symbol)?.historicals ?? [];
+          if (raw.length === 0) {
+            notFound.push(symbol);
+            continue;
+          }
+          const bars: Bar[] = raw
+            .filter((b) => Date.parse(b.begins_at) <= w.endMs && b.close_price != null)
+            .map((b) => ({
+              begins_at: b.begins_at,
+              open: Number(b.open_price),
+              high: Number(b.high_price),
+              low: Number(b.low_price),
+              close: Number(b.close_price),
+              volume: b.volume ?? 0,
+            }));
+          const values = compute(args.type, bars, params);
+          const series = bars
+            .map((b, i) => ({
+              begins_at: b.begins_at,
+              ...Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v[i] ?? null])),
+            }))
+            .filter((p) => Date.parse(p.begins_at) >= w.startMs);
+          results.push({
+            symbol,
+            interval: w.interval,
+            bounds,
+            indicators: [
+              {
+                type: args.type,
+                params,
+                series: keep === undefined ? series : series.slice(-keep),
+              },
+            ],
+          });
+        }
+        return structured(notFound.length ? { results, not_found: notFound } : { results });
       } catch (e) {
         return textError(String(e));
       }

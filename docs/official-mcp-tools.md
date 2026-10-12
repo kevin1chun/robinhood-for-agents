@@ -1,6 +1,6 @@
 Official Robinhood Trading MCP (https://agent.robinhood.com/mcp/trading): its measured rate limit and the fork's parity with its 76 tools. The tools themselves, every field the server's `tools/list` answers, are [`official-mcp-tools.json`](official-mcp-tools.json), rewritten by `bun run refresh-official-tools` after `robinhood_official_login`. Source of truth for parity.
 
-2026-09-28: five tools the server dropped were filtered out by hand; the other 76 schemas matched a live capture that day.
+Schemas: live capture 2026-10-12.
 
 > **Scope:** both modes — the Parity table says which tools each mode serves; the rate limit is the hosted server's, so it applies to standard mode. Which mode: [MODES.md](MODES.md).
 
@@ -81,12 +81,12 @@ Fork tool per official tool. `same`, `renamed` and `new` are served by the web A
 | `get_equity_analyst_ratings` | `robinhood_get_equity_analyst_ratings` | standard-only |  |
 | `get_equity_fundamentals` | `robinhood_get_equity_fundamentals` | renamed | `bounds` regular only. |
 | `get_equity_historicals` | `robinhood_get_equity_historicals` | renamed | [start, end] mapped onto the REST span grid; `adjustment_type` split only. |
-| `get_equity_orders` | `robinhood_get_equity_orders` | renamed |  |
+| `get_equity_orders` | `robinhood_get_equity_orders` | renamed | `agent_initiated` computed from `agent_id`/`placed_agent`. |
 | `get_equity_positions` | `robinhood_get_equity_positions` | same | Non-zero positions; complete, `next_cursor` null. |
 | `get_equity_price_book` | `robinhood_get_equity_price_book` | same |  |
 | `get_equity_quotes` | `robinhood_get_equity_quotes` | renamed |  |
 | `get_equity_tax_lots` | `robinhood_get_equity_tax_lots` | same |  |
-| `get_equity_technical_indicators` | `robinhood_get_equity_technical_indicators` | new | Computed by this server from REST bars. |
+| `get_equity_technical_indicators` | `robinhood_get_equity_technical_indicators` | new | Computed by this server from REST bars; symbols with no bars go to `not_found`. |
 | `get_equity_tradability` | `robinhood_get_equity_tradability` | same | Flags are instrument-level; `account_number` is echoed. |
 | `get_financials` | `robinhood_get_financials` | standard-only |  |
 | `get_index_historicals` | `robinhood_get_index_historicals` | standard-only |  |
@@ -97,7 +97,7 @@ Fork tool per official tool. `same`, `renamed` and `new` are served by the web A
 | `get_option_historicals` | `robinhood_get_option_historicals` | same | Intervals 5minute–week; `bounds` regular only. |
 | `get_option_instruments` | `robinhood_get_option_instruments` | renamed |  |
 | `get_option_level_upgrade_info` | `robinhood_get_option_level_upgrade_info` | standard-only |  |
-| `get_option_orders` | `robinhood_get_option_orders` | same | Filters applied client-side; complete, `next_cursor` null. |
+| `get_option_orders` | `robinhood_get_option_orders` | same | Filters applied client-side (`agent_initiated` from `agent_id`/`placed_agent`); complete, `next_cursor` null. |
 | `get_option_positions` | `robinhood_get_option_positions` | same | Filters applied client-side; complete, `next_cursor` null. |
 | `get_option_quotes` | `robinhood_get_option_quotes` | renamed |  |
 | `get_option_watchlist` | `robinhood_get_option_watchlist` | same |  |

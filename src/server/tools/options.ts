@@ -5,9 +5,12 @@ import { z } from "zod";
 import type { OptionInstrument } from "../../client/types.js";
 import { resolveWindow } from "../../compute/historicals-window.js";
 import {
+  AGENT_INITIATED_PARAM,
   CURSOR_PARAM,
   csv,
   getAuthenticatedRh,
+  matchesAgentInitiated,
+  PLACED_AGENT_PARAM,
   parseUtc,
   stringEnum,
   structured,
@@ -224,7 +227,7 @@ export function registerOptionsTools(server: McpServer): void {
     {
       title: "Get Option Orders",
       description:
-        "Get option order history for one account (filled, cancelled, and open multi-leg orders), filtered by order id, chain, state, source, underlying type, and creation time. Results are complete (next_cursor is always null).",
+        "Get option order history for one account (filled, cancelled, and open multi-leg orders), filtered by order id, chain, state, source, agent involvement, underlying type, and creation time. Results are complete (next_cursor is always null).",
       inputSchema: {
         account_number: z.string().describe("Brokerage account number."),
         order_id: z.string().optional().describe("One order UUID."),
@@ -233,10 +236,8 @@ export function registerOptionsTools(server: McpServer): void {
           .string()
           .optional()
           .describe("One state, e.g. queued, confirmed, filled, cancelled."),
-        placed_agent: z
-          .string()
-          .optional()
-          .describe("One source, e.g. 'user', 'agentic', 'recurring'."),
+        placed_agent: PLACED_AGENT_PARAM,
+        agent_initiated: AGENT_INITIATED_PARAM,
         underlying_type: stringEnum(["equity", "index"])
           .optional()
           .describe("'equity' or 'index'."),
@@ -270,6 +271,7 @@ export function registerOptionsTools(server: McpServer): void {
             (!chainIds || chainIds.includes(o.chain_id ?? "")) &&
             (!args.state || o.state === args.state) &&
             (!args.placed_agent || o.placed_agent === args.placed_agent) &&
+            matchesAgentInitiated(o, args.agent_initiated) &&
             (!indexChains ||
               indexChains.has(o.chain_id ?? "") === (args.underlying_type === "index")) &&
             (since === undefined ||

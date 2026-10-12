@@ -465,6 +465,35 @@ describe("Tool handlers return MCP content format", () => {
     expect(one.orders).toEqual([{ id: "o1", state: "filled" }]);
   });
 
+  it("get_equity_orders and get_option_orders filter by agent_initiated", async () => {
+    const { getClient } = await import("../../src/client/index.js");
+    const rh = getClient();
+    const all = [
+      { id: "direct", placed_agent: "agentic", agent_id: null },
+      { id: "approved", placed_agent: "user", agent_id: "agent-1" },
+      { id: "manual", placed_agent: "user", agent_id: null },
+    ];
+    const { registerOrderTools } = await import("../../src/server/tools/orders.js");
+    const { registerOptionsTools } = await import("../../src/server/tools/options.js");
+    const { server, tools } = captureMockServer();
+    registerOrderTools(server);
+    registerOptionsTools(server);
+
+    for (const [name, mock] of [
+      ["robinhood_get_equity_orders", rh.getAllStockOrders],
+      ["robinhood_get_option_orders", rh.getAllOptionOrders],
+    ] as const) {
+      const ids = async (agent_initiated?: boolean) => {
+        (mock as ReturnType<typeof vi.fn>).mockResolvedValueOnce(all);
+        const r = await callTool(tools, name, { account_number: "ABC123", agent_initiated });
+        return r.orders.map((o: { id: string }) => o.id);
+      };
+      expect(await ids(true)).toEqual(["direct", "approved"]);
+      expect(await ids(false)).toEqual(["manual"]);
+      expect(await ids()).toEqual(["direct", "approved", "manual"]);
+    }
+  });
+
   it("cancel tools refuse an order of another account", async () => {
     const { getClient } = await import("../../src/client/index.js");
     const rh = getClient();
@@ -740,7 +769,10 @@ describe("Phase 1A parity tools", () => {
       volume: 100,
     }));
     const hist = rh.getStockHistoricals as ReturnType<typeof vi.fn>;
-    hist.mockResolvedValue([{ symbol: "AAPL", historicals: bars }]);
+    hist.mockResolvedValue([
+      { symbol: "AAPL", historicals: bars },
+      { symbol: "MSFT", historicals: bars.map((b) => ({ ...b, close_price: "20" })) },
+    ]);
     const { registerStockTools } = await import("../../src/server/tools/stocks.js");
     const { server, tools } = captureMockServer();
     registerStockTools(server);
@@ -763,7 +795,52 @@ describe("Phase 1A parity tools", () => {
       start_time: start,
       output: "latest",
     });
-    expect(ind.series).toEqual([{ begins_at: bars[3]?.begins_at, value: 10.5 }]);
+    expect(ind.results).toEqual([
+      {
+        symbol: "AAPL",
+        interval: "day",
+        bounds: "regular",
+        indicators: [
+          {
+            type: "sma",
+            params: { period: 2 },
+            series: [{ begins_at: bars[3]?.begins_at, value: 10.5 }],
+          },
+        ],
+      },
+    ]);
+    expect(ind.not_found).toBeUndefined();
+
+    const multi = await callTool(tools, "robinhood_get_equity_technical_indicators", {
+      symbols: ["msft", "AAPL", "ZZZZ"],
+      type: "sma",
+      period: 2,
+      interval: "day",
+      start_time: start,
+      output: "latest",
+    });
+    expect(
+      multi.results.map((r: { symbol: string; indicators: { series: unknown[] }[] }) => [
+        r.symbol,
+        r.indicators[0]?.series,
+      ]),
+    ).toEqual([
+      ["MSFT", [{ begins_at: bars[3]?.begins_at, value: 20 }]],
+      ["AAPL", [{ begins_at: bars[3]?.begins_at, value: 10.5 }]],
+    ]);
+    expect(multi.not_found).toEqual(["ZZZZ"]);
+
+    const base = { type: "sma", interval: "day", start_time: start };
+    for (const bad of [
+      { ...base, symbol: "AAPL", symbols: ["AAPL"] },
+      base,
+      { ...base, symbols: Array.from({ length: 11 }, (_, i) => `S${i}`) },
+    ]) {
+      const r = (await (tools.robinhood_get_equity_technical_indicators as ToolHandler)(bad)) as {
+        isError?: boolean;
+      };
+      expect(r.isError).toBe(true);
+    }
 
     const rejected = (await (tools.robinhood_get_equity_technical_indicators as ToolHandler)({
       symbol: "AAPL",

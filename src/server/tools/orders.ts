@@ -3,12 +3,15 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  AGENT_INITIATED_PARAM,
   CRYPTO_ORDER_PARAMS,
   CURSOR_PARAM,
   EQUITY_ORDER_PARAMS,
   findPair,
   getAuthenticatedRh,
+  matchesAgentInitiated,
   OPTION_ORDER_PARAMS,
+  PLACED_AGENT_PARAM,
   parseCryptoOrder,
   parseEquityOrder,
   parseOptionOrder,
@@ -152,7 +155,7 @@ export function registerOrderTools(server: McpServer): void {
     {
       title: "Get Equity Orders",
       description:
-        "Get stock order history for one account, filtered by order id, symbol, state, source, and creation time. Results are complete (next_cursor is always null).",
+        "Get stock order history for one account, filtered by order id, symbol, state, source, agent involvement, and creation time. Results are complete (next_cursor is always null).",
       inputSchema: {
         account_number: z.string().describe("Brokerage account number."),
         order_id: z.string().optional().describe("One order UUID."),
@@ -161,10 +164,8 @@ export function registerOrderTools(server: McpServer): void {
           .string()
           .optional()
           .describe("One state, e.g. queued, confirmed, filled, cancelled."),
-        placed_agent: z
-          .string()
-          .optional()
-          .describe("One source, e.g. 'user', 'agentic', 'recurring'."),
+        placed_agent: PLACED_AGENT_PARAM,
+        agent_initiated: AGENT_INITIATED_PARAM,
         created_at_gte: z
           .string()
           .optional()
@@ -189,6 +190,7 @@ export function registerOrderTools(server: McpServer): void {
             (!instrumentId || o.instrument_id === instrumentId) &&
             (!args.state || o.state === args.state) &&
             (!args.placed_agent || o.placed_agent === args.placed_agent) &&
+            matchesAgentInitiated(o, args.agent_initiated) &&
             since(o.created_at, args.created_at_gte),
         );
         return structured({ orders, next_cursor: null });

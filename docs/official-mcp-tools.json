@@ -719,7 +719,7 @@
   },
   {
     "name": "create_scan",
-    "description": "Create a new saved scanner (screener) on the user's account — or, with scan_id, update an existing one by appending a new configuration version. Filters can be enum-based (from get_scanner_filter_specs) or expression-based (a raw market-data expression built from get_scanner_datapoints). Returns the scan's id, title, applied filters, and live market results.\n\nPrefer an enum filter_type whenever one covers the request: enum filters are pre-validated and render as standard, user-editable filters in Legend. Build a raw expression only when no enum filter covers the request, and validate it with preview_scan before saving it here. This is the only tool that saves expression filters — update_scan_filters rejects them — so to change a scan that has an expression filter, call this tool with that scan's scan_id and the full desired filter set.\n\nColumns display values, filters screen. To show a datapoint in results without restricting matches, pass it in columns — never fake it with a no-op filter like \">= 0\", which pollutes the scan's filter list. A column is a display_name plus an expression, or a standard column's display name alone. A couple of contextual columns supporting the filters make a scan read better in Legend.\n\nTwo execution paths:\n- New scan, enum-only filters (or none), no columns: composes multiple Beacon operations — create the scan, apply the preset configuration if non-INITIAL, apply filters, set the title. If a step after the initial create fails, the scan still exists in its partial state; the response surfaces what was applied, and update_scan_filters / update_scan_config can fix the rest.\n- scan_id set, any expression filter present, or any columns present: a single transactional Beacon call that persists the filters and columns as a new ACTIVE configuration version (on the given scan, or on a brand-new one). All-or-nothing — an expression the market-data provider rejects means NOTHING is persisted, and the provider's validation error is returned. Earlier versions of a scan are never edited. A non-INITIAL preset cannot be combined with this path.\n\nParameters:\n- scan_id (optional) — update this existing scan instead of creating one. REPLACE semantics: the new version holds exactly the filters and columns passed, so read the current set via get_scans first and send the complete intended set. Cortex-managed scans are rejected.\n- preset (optional) — starting preset for a new scan. Default: DAILY_GAINERS when no filters supplied, INITIAL when filters supplied. Valid values: INITIAL, DAILY_GAINERS, DAILY_LOSERS, HIGH_OPTIONS_VOLUME_IV, UPCOMING_EARNINGS.\n- filters (optional for a new scan, required with scan_id) — array of filter specs, enum and/or expression. Call get_scanner_filter_specs for enum filters; call get_scanner_datapoints before composing an expression.\n- columns (optional) — extra result columns on top of the filters' own columns and the standard defaults. An expression matching a standard column's canonical form is saved as that standard column, canonical name included (e.g. \"optionsPutDayVolume\" always saves as \"Total put volume\").\n- title (optional) — custom human-readable name for the scan.\n\nExample: to make \"stocks with RSI > 70 and volume > 1M\", call with\n  preset = \"INITIAL\"\n  filters = [\n    {\"filter_type\": \"FILTER_TYPE_RSI\", \"predicate\": \">\", \"values\": [\"70\"], \"interval\": \"1d\", \"length\": 14},\n    {\"filter_type\": \"FILTER_TYPE_VOLUME\", \"predicate\": \">\", \"values\": [\"1000000\"], \"interval\": \"1d\"}\n  ]\n  title = \"High RSI + High Volume\"\n\nExample: to save \"stocks where put option volume exceeds call option volume\" (no enum filter compares two datapoints), showing both volumes and the ratio as context, call with\n  filters = [\n    {\"expression\": \"optionsPutDayVolume > optionsCallDayVolume\", \"predicate\": \"=\", \"values\": [\"True\"], \"display_title\": \"Put exceeds call\"}\n  ]\n  columns = [\n    {\"display_name\": \"Put volume\", \"expression\": \"optionsPutDayVolume\"},\n    {\"display_name\": \"Call volume\", \"expression\": \"optionsCallDayVolume\"},\n    {\"display_name\": \"Put/Call ratio\", \"expression\": \"optionsPutDayVolume / optionsCallDayVolume\"}\n  ]\n  title = \"Put hedging screen\"\n  (the first two save under their canonical standard names, \"Total put volume\" and \"Total call volume\")\n\nExample: to tighten that saved screen later without creating a second scan, call with\n  scan_id = \"<its scan_id from get_scans>\"\n  filters = [the scan's current filters, copied from get_scans (expressions verbatim, enum filters by filter_type_enum), with the desired change applied]\n  columns = [the scan's current extra columns, copied from get_scans, if they should be kept]",
+    "description": "Create a new saved scanner (screener) on the user's account — or, with scan_id, update an existing one by appending a new configuration version. Filters can be enum-based (from get_scanner_filter_specs) or expression-based (a raw market-data expression built from get_scanner_datapoints). Returns the scan's id, title, applied filters, and live market results.\n\nPrefer an enum filter_type whenever one covers the request: enum filters are pre-validated and render as standard, user-editable filters in Legend. Build a raw expression only when no enum filter covers the request, and validate it with preview_scan before saving it here. This is the only tool that saves expression filters — update_scan_filters rejects them — so to change a scan that has an expression filter, call this tool with that scan's scan_id and the full desired filter set.\n\nColumns display values, filters screen. To show a datapoint in results without restricting matches, pass it in columns — never fake it with a no-op filter like \">= 0\", which pollutes the scan's filter list. A column is a display_name plus an expression, or a standard column's display name alone. A couple of contextual columns supporting the filters make a scan read better in Legend.\n\nTwo execution paths:\n- New scan, enum-only filters (or none), no columns: composes multiple Beacon operations — create the scan, apply the preset configuration if non-INITIAL, apply filters, set the title. If a step after the initial create fails, the scan still exists in its partial state; the response surfaces what was applied, and update_scan_filters / update_scan_config can fix the rest.\n- scan_id set, any expression filter present, or any columns present: a single transactional Beacon call that persists the filters and columns as a new ACTIVE configuration version (on the given scan, or on a brand-new one). All-or-nothing — an expression the market-data provider rejects means NOTHING is persisted, and the provider's validation error is returned. Earlier versions of a scan are never edited. A non-INITIAL preset cannot be combined with this path.\n\nParameters:\n- scan_id (optional) — update this existing scan instead of creating one. REPLACE semantics: the new version holds exactly the filters and columns passed, so read the current set via get_scans first and send the complete intended set. Cortex-managed scans are rejected.\n- preset (optional) — starting preset for a new scan. Default: DAILY_GAINERS when no filters supplied, INITIAL when filters supplied. Valid values: INITIAL, DAILY_GAINERS, DAILY_LOSERS, HIGH_OPTIONS_VOLUME_IV, UPCOMING_EARNINGS.\n- filters (optional for a new scan, required with scan_id) — array of filter specs, enum and/or expression. Call get_scanner_filter_specs for enum filters; call get_scanner_datapoints before composing an expression.\n- columns (optional) — extra result columns on top of the filters' own columns and the standard defaults. An expression matching a standard column's canonical form is saved as that standard column, canonical name included (e.g. \"optionsPutDayVolume\" always saves as \"Total put volume\"). When re-sending a column the scan already has, send it by display_name ALONE if it comes from one of the scan's filters or is a standard column, and by display_name plus its expression only if it is a column you yourself added with an expression. Do not echo back the expression get_scans reports for a filter-created or standard column: that is rejected with \"column already exists from a filter\".\n- title (optional) — custom human-readable name for the scan.\n\nExample: to make \"stocks with RSI > 70 and volume > 1M\", call with\n  preset = \"INITIAL\"\n  filters = [\n    {\"filter_type\": \"FILTER_TYPE_RSI\", \"predicate\": \">\", \"values\": [\"70\"], \"interval\": \"1d\", \"length\": 14},\n    {\"filter_type\": \"FILTER_TYPE_VOLUME\", \"predicate\": \">\", \"values\": [\"1000000\"], \"interval\": \"1d\"}\n  ]\n  title = \"High RSI + High Volume\"\n\nExample: to save \"stocks where put option volume exceeds call option volume\" (no enum filter compares two datapoints), showing both volumes and the ratio as context, call with\n  filters = [\n    {\"expression\": \"optionsPutDayVolume > optionsCallDayVolume\", \"predicate\": \"=\", \"values\": [\"True\"], \"display_title\": \"Put exceeds call\"}\n  ]\n  columns = [\n    {\"display_name\": \"Put volume\", \"expression\": \"optionsPutDayVolume\"},\n    {\"display_name\": \"Call volume\", \"expression\": \"optionsCallDayVolume\"},\n    {\"display_name\": \"Put/Call ratio\", \"expression\": \"optionsPutDayVolume / optionsCallDayVolume\"}\n  ]\n  title = \"Put hedging screen\"\n  (the first two save under their canonical standard names, \"Total put volume\" and \"Total call volume\")\n\nExample: to tighten that saved screen later without creating a second scan, call with\n  scan_id = \"<its scan_id from get_scans>\"\n  filters = [the scan's current filters, copied from get_scans (expressions verbatim, enum filters by filter_type_enum), with the desired change applied]\n  columns = [the scan's current extra columns, copied from get_scans, if they should be kept]",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -802,7 +802,7 @@
               },
               "expression": {
                 "type": "string",
-                "description": "Raw market-data expression computing the column's value, built from get_scanner_datapoints (same language as expression filters), e.g. \"optionsPutDayVolume / optionsCallDayVolume\". Omit to reference a standard column by display_name alone. If the expression equals a standard column's canonical form, the column is saved as that standard column and display_name is REPLACED by its canonical name (e.g. \"optionsPutDayVolume\" always saves as \"Total put volume\")."
+                "description": "Raw market-data expression computing the column's value, built from get_scanner_datapoints (same language as expression filters), e.g. \"optionsPutDayVolume / optionsCallDayVolume\". Omit to reference a standard column by display_name alone. Also omit it when display_name matches a column one of this scan's filters already creates: passing both is rejected with \"column already exists from a filter\". The expression get_scans reports on an existing column is read-only explanation, not an input, and echoing it back is the usual cause of that rejection. If the expression equals a standard column's canonical form, the column is saved as that standard column and display_name is REPLACED by its canonical name (e.g. \"optionsPutDayVolume\" always saves as \"Total put volume\")."
               },
               "visible": {
                 "type": [
@@ -826,7 +826,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "Optional result columns to display on top of what the filters and the standard default columns already show. Each column: display_name plus either an expression (from get_scanner_datapoints) or nothing (a standard column referenced by name, e.g. \"Market cap\"). Columns display values, filters screen — to show a datapoint without restricting results, add a column here, never a no-op filter (e.g. >= 0). A couple of contextual columns supporting the filters make the scan read better in Legend."
+          "description": "Optional result columns to display on top of what the filters and the standard default columns already show. Each column: display_name plus either an expression (from get_scanner_datapoints) or nothing (a standard column named by display_name; an unknown name is rejected with the full list of valid ones). Columns display values, filters screen — to show a datapoint without restricting results, add a column here, never a no-op filter (e.g. >= 0). A couple of contextual columns supporting the filters make the scan read better in Legend."
         },
         "title": {
           "type": "string",
@@ -982,7 +982,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "How to interpret the response:\n- result.scan_id — the created scan (or, when scan_id was passed, that same scan: the update landed as a new configuration version on it). Pass this to run_scan, update_scan_filters, or update_scan_config in follow-up calls.\n- result.scan_title — final title (custom if provided; else Beacon's default for a new scan, or the existing title on a scan_id update).\n- result.filters_applied — the filter set actually in effect after the call. If this doesn't match what the user asked for, one of the composite steps failed silently — surface that to the user.\n- result.results — initial live results (real-time market data at scan creation time).\n- result.total_items — total matches. May exceed len(results) if the scan's frontend_limit is hit.\n\nWhen presenting:\n- Confirm the scan was created and note its title + filters_applied (so the user knows what was actually saved).\n- Render the initial results as a table.\n- Tell the user the scan is saved and can be re-run anytime with run_scan + the returned scan_id.\n- If results is empty: tell the user no instruments match the filters right now, and suggest broadening them with update_scan_filters.\n\nError handling:\n- \"unknown preset X\" → preset enum not recognized. List the valid presets to the user.\n- \"filter[N]: ...\" → filter validation failure at index N. Tell the user which filter and why. Rejected before any Beacon call — nothing was created.\n- \"created by Cortex and cannot be modified\" (with scan_id) → the target scan is Cortex-managed. Offer to create a fresh scan (omit scan_id) instead.\n- Partial-failure responses (e.g. \"scan X created but preset Y could not be applied\") indicate a partial success on the enum path: the scan exists but is missing some of the intended state. Use filters_applied on the response to see what actually landed; mention this clearly to the user so they know whether they need to follow up with update_scan_filters.\n- With expression filters there are no partial failures: an upstream validation error (e.g. \"unresolved reference: X\", \"unsupported candle-period\") means nothing was saved. Fix the expression — get_scanner_datapoints has the valid names and signatures — and call again, or iterate with preview_scan first."
+          "description": "How to interpret the response:\n- result.scan_id — the created scan (or, when scan_id was passed, that same scan: the update landed as a new configuration version on it). Pass this to run_scan, update_scan_filters, or update_scan_config in follow-up calls.\n- result.scan_title — final title (custom if provided; else Beacon's default for a new scan, or the existing title on a scan_id update).\n- result.filters_applied — the filter set actually in effect after the call. If this doesn't match what the user asked for, one of the composite steps failed silently — surface that to the user.\n- result.results — initial live results (real-time market data at scan creation time).\n- result.total_items — total matches. May exceed len(results) if the scan's frontend_limit is hit.\n\nWhen presenting:\n- Confirm the scan was created and note its title + filters_applied (so the user knows what was actually saved).\n- Render the initial results as a table.\n- Tell the user the scan is saved and can be re-run anytime with run_scan + the returned scan_id.\n- If results is empty: tell the user no instruments match the filters right now, and suggest broadening them with update_scan_filters.\n\nError handling:\n- \"unknown preset X\" → preset enum not recognized. List the valid presets to the user.\n- \"filter[N]: ...\" → filter validation failure at index N. Tell the user which filter and why. Rejected before any Beacon call — nothing was created.\n- \"created by Cortex and cannot be modified\" (with scan_id) → the target scan is Cortex-managed. Offer to create a fresh scan (omit scan_id) instead.\n- \"column X already exists from a filter\" → one of the scan's filters already produces a column with that display name, and an expression was passed for it as well. Re-send that column with NO expression to customize it (visibility, position), or give it a different display_name. Do not drop the filter.\n- \"no standard column is named X\" → the display name is not a standard column and no expression was given. Pick one of the valid names the error lists, or supply an expression from get_scanner_datapoints.\n- Partial-failure responses (e.g. \"scan X created but preset Y could not be applied\") indicate a partial success on the enum path: the scan exists but is missing some of the intended state. Use filters_applied on the response to see what actually landed; mention this clearly to the user so they know whether they need to follow up with update_scan_filters.\n- With expression filters there are no partial failures: an upstream validation error (e.g. \"unresolved reference: X\", \"unsupported candle-period\") means nothing was saved. Fix the expression — get_scanner_datapoints has the valid names and signatures — and call again, or iterate with preview_scan first."
         }
       },
       "required": [
@@ -1563,6 +1563,10 @@
                     "type": "string",
                     "description": "Options approval: 'option_level_2' (long calls/puts, covered calls, cash-secured puts), 'option_level_3' (spreads and complex strategies), or empty/'option_level_0' (not approved)."
                   },
+                  "user_option_level": {
+                    "type": "string",
+                    "description": "The caller's own options approval on a multi-member (trust) account: 'option_level_2', 'option_level_3', or absent. Absent on single-owner and joint accounts and whenever the caller holds no level of their own. When present and below option_level the caller is view-only for options on this account and cannot place, replace, cancel or exercise; treat user_option_level, not option_level, as their tradable level."
+                  },
                   "management_type": {
                     "type": "string",
                     "description": "Management classification (e.g. 'managed') when applicable; layered on top of brokerage_account_type rather than replacing it."
@@ -1609,7 +1613,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "Sort the list deterministically when presenting: the default account first, agentic accounts (agentic_allowed=true) second, then other individual accounts, then retirement (IRA) accounts. Present account_number, rhc_account_number (label it \"Crypto Account\"), brokerage_account_type (label it \"Account Type\" — a linked crypto account always shares it, so never add a separate crypto account type column), type (label it \"Brokerage Trading Type\"), nickname (if set), and is_default — in that column order. In the Crypto Account column show \"N/A\" for accounts with an empty rhc_account_number; omit the column entirely only when no account has one. When referring to the account in user-facing prose (e.g. \"your <X> account\"), use nickname when set; fall back to brokerage_account_type otherwise. When displaying account_number or rhc_account_number to the user, mask all but the last 4 digits (e.g. '••••1234'); pass the full value to other tools unchanged — including get_option_level_upgrade_info and any fallback upgrade URL; masking breaks the link. Flag agentic_allowed when the user is choosing an account for a trade. There is exactly one agentic_allowed=true account — use it directly rather than asking which account to trade. agentic_allowed is caller-relative — true means accessible to this agent, false means this agent cannot act on it (the account may still be agentic-enabled for a different agent). Never state agentic_allowed's field name or raw boolean value to the user. Do not use nickname to determine agentic-account eligibility. Skip false accounts for trade operations; if the user asks why, say the account is not accessible to this agent, not that it needs to be enabled. When option_level is empty or 'option_level_0' and the user wants options, call get_option_level_upgrade_info with the account_number; if that tool is unavailable, direct the user to https://applink.robinhood.com/upgrade_options?account_number=<that account's account_number> (embed the full unmasked account_number in the URL). management_type='managed' is layered on brokerage_account_type — surface alongside, not as a replacement. For tools that ask for an account identifier on a crypto-backed flow (get_crypto_positions, future crypto write tools), pass rhs_account_number; for everything else (equities, options, etc.) pass account_number. Do not add an unsettled_funds column to the account table — surface it only via the following rule. Whenever you report an account's funds, value, or buying power and that account has type='cash' with unsettled_funds greater than 0, and the user wants to access unsettled funds or other features available in a limited margin account — if the get_limited_margin_upgrade_info tool is available — call it with the account_number and share the appropriate upgrade link. If that tool is not available, say nothing about limited margin (there is no fallback). "
+          "description": "Sort the list deterministically when presenting: the default account first, agentic accounts (agentic_allowed=true) second, then other individual accounts, then retirement (IRA) accounts. Present account_number, rhc_account_number (label it \"Crypto Account\"), brokerage_account_type (label it \"Account Type\" — a linked crypto account always shares it, so never add a separate crypto account type column), type (label it \"Brokerage Trading Type\"), nickname (if set), and is_default — in that column order. In the Crypto Account column show \"N/A\" for accounts with an empty rhc_account_number; omit the column entirely only when no account has one. When referring to the account in user-facing prose (e.g. \"your <X> account\"), use nickname when set; fall back to brokerage_account_type otherwise. When displaying account_number or rhc_account_number to the user, mask all but the last 4 digits (e.g. '••••1234'); pass the full value to other tools unchanged — including get_option_level_upgrade_info and any fallback upgrade URL; masking breaks the link. Flag agentic_allowed when the user is choosing an account for a trade. There is exactly one agentic_allowed=true account — use it directly rather than asking which account to trade. agentic_allowed is caller-relative — true means accessible to this agent, false means this agent cannot act on it (the account may still be agentic-enabled for a different agent). Never state agentic_allowed's field name or raw boolean value to the user. Do not use nickname to determine agentic-account eligibility. Skip false accounts for trade operations; if the user asks why, say the account is not accessible to this agent, not that it needs to be enabled. When user_option_level is present (multi-member trust accounts), it is this user's own options level on that account and is the level to reason about for options actions there; if it is below option_level the user is view-only for options on that account. When user_option_level is absent on a trust account (brokerage_account_type='trust_revocable'), the user holds no options level of their own there — do not offer options actions on that account, even though option_level is set. When option_level is empty or 'option_level_0' and the user wants options, call get_option_level_upgrade_info with the account_number; if that tool is unavailable, direct the user to https://applink.robinhood.com/upgrade_options?account_number=<that account's account_number> (embed the full unmasked account_number in the URL). management_type='managed' is layered on brokerage_account_type — surface alongside, not as a replacement. For tools that ask for an account identifier on a crypto-backed flow (get_crypto_positions, future crypto write tools), pass rhs_account_number; for everything else (equities, options, etc.) pass account_number. Do not add an unsettled_funds column to the account table — surface it only via the following rule. Whenever you report an account's funds, value, or buying power and that account has type='cash' with unsettled_funds greater than 0, and the user wants to access unsettled funds or other features available in a limited margin account — if the get_limited_margin_upgrade_info tool is available — call it with the account_number and share the appropriate upgrade link. If that tool is not available, say nothing about limited margin (there is no fallback). "
         }
       },
       "required": [
@@ -2093,7 +2097,7 @@
         },
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         }
       },
       "required": [
@@ -2132,7 +2136,7 @@
                   },
                   "ref_id": {
                     "type": "string",
-                    "description": "Client-supplied idempotency key from order placement. Useful for reconciling agent-placed orders against records the agent kept."
+                    "description": "Idempotency key the order is stored under, unique per account. Usually the ref_id passed to place_crypto_order; an order placed through a trade approval carries that approval's id instead. Omitted when the order has none."
                   },
                   "account_id": {
                     "type": "string",
@@ -2458,7 +2462,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -2491,11 +2495,11 @@
       "properties": {
         "rhs_account_number": {
           "type": "string",
-          "description": "Numeric brokerage account number (the 'rhs_account_number' field on get_accounts entries — distinct from the alphanumeric 'account_number'). Required."
+          "description": "Numeric brokerage account number (the 'rhs_account_number' field on get_accounts entries — distinct from the alphanumeric 'account_number'). Required. Do NOT pass rhc_account_number (the linked crypto account, labeled 'Crypto Account' on get_accounts) — that is a different identifier space and will return no positions."
         },
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         }
       },
       "required": [
@@ -2580,15 +2584,15 @@
                       "properties": {
                         "direct_quantity": {
                           "type": "string",
-                          "description": "Quantity attributable to direct buys (excludes transfers and rewards)."
+                          "description": "Quantity covered by direct_cost_basis."
                         },
                         "direct_cost_basis": {
                           "type": "string",
-                          "description": "Total cost basis for direct_quantity (units of the quote currency, typically USD)."
+                          "description": "Total cost basis for direct_quantity, in USD. Zero means the basis for these units is not known, not that they were free."
                         },
                         "intraday_quantity": {
                           "type": "string",
-                          "description": "Portion of direct_quantity acquired today."
+                          "description": "Quantity acquired today and still held."
                         },
                         "intraday_cost_basis": {
                           "type": "string",
@@ -2603,7 +2607,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Direct-purchase cost basis. Tracks only the portion of the position that came from buys — quantity acquired via transfer, reward, or fork is not represented here, so sum(direct_quantity) can be less than the holding's quantity. Multiple entries appear after forks/splits (e.g. BCH/BSV)."
+                    "description": "Cost basis for average buy price and P&L, in USD; normally one entry, absent when no cost basis is known. If more than one entry is present, report each separately and do not add direct_cost_basis across entries."
                   }
                 },
                 "required": [
@@ -2619,7 +2623,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -2630,7 +2634,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "Sellable quantity: use `quantity_transferable`, not `quantity` — `quantity_transferable` is the amount available to sell right now (already nets out open sell orders, pending withdrawals, holds, quarantine, and instant-funds restrictions); `quantity` only subtracts pending withdrawals. The two are equal in the common case but diverge when there are open sells or unsettled instant buys. Asset name comes from currency.code; for current price, call get_crypto_quotes with the pair symbol (construct as `currency.code + \"-USD\"` for USD-quoted pairs, or look up via get_currency_pairs) — note that get_crypto_quotes takes the symbol, NOT currency_pair_id. For per-unit average buy price, sum direct_cost_basis and sum direct_quantity across all cost_bases entries (multi-entry rows appear after forks like BCH/BSV) and divide — the average only covers direct purchases. When sum(direct_quantity) is materially less than quantity, the rest came from transfers, rewards, or forks with no captured cost basis; surface that the average buy price applies only to a subset of the units. The intraday_* fields isolate today's portion when the user asks about today specifically. Suppress cost_bases when not asked. No market price here — for current value or P&L, multiply the get_crypto_quotes result by quantity."
+          "description": "Sellable quantity: use `quantity_transferable`, not `quantity` — `quantity_transferable` is the amount available to sell right now (already nets out open sell orders, pending withdrawals, holds, quarantine, and instant-funds restrictions); `quantity` only subtracts pending withdrawals. The two are equal in the common case but diverge when there are open sells or unsettled instant buys. Asset name comes from currency.code; for current price, call get_crypto_quotes with the pair symbol (construct as `currency.code + \"-USD\"` for USD-quoted pairs, or look up via get_currency_pairs) — note that get_crypto_quotes takes the symbol, NOT currency_pair_id. Per-unit average buy price for an entry is direct_cost_basis / direct_quantity; when direct_cost_basis is 0, say the basis is unknown rather than reporting a $0 average. direct_quantity is in asset units, so it is safe to sum across entries. The total can differ from the holding's quantity in either direction; report the difference without asserting a cause (possible reasons include transfers or rewards with no captured cost basis, a pending withdrawal, a recent sell still settling, or lot records still being reconciled). When the total is less than quantity, the average buy price covers only that subset of the units. The intraday_* fields isolate today's still-held portion when the user asks about today specifically; they can lag a very recent fill. Suppress cost_bases when not asked. No market price here — for current value or P&L, multiply the get_crypto_quotes result by quantity."
         }
       },
       "required": [
@@ -2665,7 +2669,7 @@
         },
         "rhs_account_number": {
           "type": "string",
-          "description": "Optional numeric brokerage account number (the 'rhs_account_number' from get_accounts). When supplied, bid/ask/mark and the previous close are priced on this account's execution routing — the venues its orders actually fill at — and the applied routing is echoed in routing. When omitted, prices use the caller's own routing (it is set at the user level, so any of their crypto accounts yields the same routing). A caller with no crypto account, or an account that cannot be resolved, receives market-maker-routed pricing."
+          "description": "Optional numeric brokerage account number (the 'rhs_account_number' from get_accounts). When supplied, bid/ask/mark and the previous close are priced on this account's execution routing — the venues its orders actually fill at — and the applied routing is echoed in routing. When omitted, prices use the caller's own routing (it is set at the user level, so any of their crypto accounts yields the same routing). A caller with no crypto account, or an account that cannot be resolved, receives market-maker-routed pricing. Pairs that only trade on market-maker routing are always priced on it, whatever the account's routing, so routing can differ between results in one response."
         }
       },
       "required": [
@@ -2759,7 +2763,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "Current price: prefer mark_price when both sides of the book are populated; if mark_price is zero, fall back to the most recent of bid_time / ask_time and quote the side that updated last. Drop bid or ask when zero — the book is unavailable on that side. Use updated_at to judge freshness; if it is more than a few seconds stale, phrase as \"as of <time>\" rather than \"current\". open_price is the previous close — in continuous crypto the midnight boundary price is the prior day's close. That boundary is midnight in the request timezone (the 'timezone' parameter), or US Eastern when none is supplied; response timestamps carry that same timezone's offset, so quote \"as of\" times in it directly. For change vs the previous close, compute (mark_price - open_price) / open_price. The response symbol comes back unhyphenated (e.g. 'BTCUSD'); the canonical form from get_currency_pairs is hyphenated ('BTC-USD') — strip the hyphen to cross-reference. bid/ask/mark reflect the execution routing reported in routing: the supplied account's routing when rhs_account_number was given, otherwise the caller's user-level routing (market maker routing when the caller has no crypto account). This is informational; place_order routing is selected per account at order time."
+          "description": "Current price: prefer mark_price when both sides of the book are populated; if mark_price is zero, fall back to the most recent of bid_time / ask_time and quote the side that updated last. Drop bid or ask when zero — the book is unavailable on that side. Use updated_at to judge freshness; if it is more than a few seconds stale, phrase as \"as of <time>\" rather than \"current\". open_price is the previous close — in continuous crypto the midnight boundary price is the prior day's close. That boundary is midnight in the request timezone (the 'timezone' parameter), or US Eastern when none is supplied; response timestamps carry that same timezone's offset, so quote \"as of\" times in it directly. For change vs the previous close, compute (mark_price - open_price) / open_price. The response symbol comes back unhyphenated (e.g. 'BTCUSD'); the canonical form from get_currency_pairs is hyphenated ('BTC-USD') — strip the hyphen to cross-reference. bid/ask/mark reflect the execution routing reported in routing, resolved per pair: pairs eligible for the account's routing use it (the supplied account's routing when rhs_account_number was given, otherwise the caller's user-level routing; market maker routing when the caller has no crypto account), and pairs that only trade on market maker routing use that regardless of the account, so routing can differ between results in one response. Results follow the requested symbol order. This is informational; place_order routing is selected per account at order time."
         }
       },
       "required": [
@@ -2780,7 +2784,7 @@
       "properties": {
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         },
         "limit": {
           "type": "integer",
@@ -2968,7 +2972,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -3933,7 +3937,7 @@
     "annotations": {
       "readOnlyHint": true
     },
-    "description": "Fetch equity orders for an account — list mode (newest first; open and closed, including fills, cancellations, rejections) or single-order mode by passing order_id. When the user asks broadly for \"orders\" or \"my orders\" without naming an asset class or order type, call get_equity_orders, get_option_orders, get_crypto_orders, and get_advanced_orders in parallel so OCO groups are not omitted.\n\nFiltering tips:\n- Prefer narrow queries: combine state, symbol, and/or created_at_gte for specific questions (e.g. \"my filled AAPL orders this week\") — the per-page cap is fixed.\n- created_at_gte: interpret relative times in the user's timezone, convert to UTC before sending.\n- symbol forces a symbol→instrument lookup; omit it if you don't need it.",
+    "description": "Fetch equity orders for an account — list mode (newest first; open and closed, including fills, cancellations, rejections) or single-order mode by passing order_id. When the user asks broadly for \"orders\" or \"my orders\" without naming an asset class or order type, call get_equity_orders, get_option_orders, get_crypto_orders, and get_advanced_orders in parallel so OCO groups are not omitted.\n\nFiltering tips:\n- Prefer narrow queries: combine state, symbol, and/or created_at_gte for specific questions (e.g. \"my filled AAPL orders this week\") — the per-page cap is fixed.\n- created_at_gte: interpret relative times in the user's timezone, convert to UTC before sending.\n- symbol forces a symbol→instrument lookup; omit it if you don't need it.\n- To find agent-initiated orders, use agent_initiated=true: it returns every order an agent initiated, including ones the customer approved in the app, which placed_agent='agentic' alone would miss. It does not identify which agent, so describe results as agent-initiated orders rather than as this agent's own trades.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -3959,11 +3963,18 @@
         },
         "placed_agent": {
           "type": "string",
-          "description": "Filter to one source: 'user', 'agentic' (MCP), 'recurring', 'drip', etc."
+          "description": "Filter by the source that finally submitted or approved the order: 'user', 'agentic' (MCP), 'recurring', 'drip', etc. To find agent-initiated orders, use agent_initiated instead: an approved order is submitted by the customer and reads 'user' here."
+        },
+        "agent_initiated": {
+          "type": [
+            "null",
+            "boolean"
+          ],
+          "description": "true returns only agent-initiated orders (any agent, not just this one), whether an agent submitted them directly or the customer approved them in the Robinhood app; false returns only orders the customer created with no agent involved. Omit for all orders."
         },
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         }
       },
       "required": [
@@ -3991,6 +4002,10 @@
                   "id": {
                     "type": "string",
                     "description": "Order UUID; needed by cancel_equity_order."
+                  },
+                  "ref_id": {
+                    "type": "string",
+                    "description": "Idempotency key the order is stored under, unique per account. Usually the ref_id passed to place_equity_order; an order placed through a trade approval carries that approval's id instead. Omitted when the order has none."
                   },
                   "instrument_id": {
                     "type": "string",
@@ -4084,7 +4099,11 @@
                   },
                   "placed_agent": {
                     "type": "string",
-                    "description": "Source that placed the order: 'user' (app), 'agentic' (MCP), 'recurring', 'drip', 'brokeback' (system), or other internal values."
+                    "description": "Source that finally submitted or approved the order: 'user' (app), 'agentic' (MCP), 'recurring', 'drip', or other internal system values. An agent-proposed order the customer approved in the app reads 'user' here; use agent_initiated to recognize it as agent-initiated."
+                  },
+                  "agent_initiated": {
+                    "type": "boolean",
+                    "description": "True when the order originated from an agent's request, regardless of who submitted it: either an agent submitted it directly (Trade Approvals off), or the customer reviewed an agent's proposal and approved it in the Robinhood app (Trade Approvals on). Identifies agent-initiated orders in general, not orders initiated by this agent specifically. False when the customer created the order in the app with no agent involved."
                   },
                   "created_at": {
                     "type": "string",
@@ -4160,6 +4179,7 @@
                   "market_hours",
                   "trigger",
                   "placed_agent",
+                  "agent_initiated",
                   "created_at",
                   "last_transaction_at",
                   "executions"
@@ -4170,7 +4190,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -4181,7 +4201,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "For dollar-based orders (dollar_based_amount populated, quantity sometimes null) describe in dollars until cumulative_quantity is meaningful. Mention placed_agent when it is not 'user'. Recover the user-facing order type from type+trigger or from price/stop_price. Present symbol, side, type, state, quantity (or dollar_based_amount), cumulative_quantity when partially filled, price for limit orders, average_price once filled, last_transaction_at (or created_at), and id when cancellation may follow; suppress other fields unless asked."
+          "description": "For dollar-based orders (dollar_based_amount populated, quantity sometimes null) describe in dollars until cumulative_quantity is meaningful. Describe agent_initiated=true orders as agent-initiated even when placed_agent is 'user' (the customer approved them in the app), without claiming this agent placed them; mention placed_agent when it is not 'user'. Recover the user-facing order type from type+trigger or from price/stop_price. Present symbol, side, type, state, quantity (or dollar_based_amount), cumulative_quantity when partially filled, price for limit orders, average_price once filled, last_transaction_at (or created_at), and id when cancellation may follow; suppress other fields unless asked. When next is non-empty more pages exist — it is an opaque cursor, not a URL, so call this tool again with cursor set to that value verbatim and the same filters; keep paging until next is empty whenever the user asks for their full history."
         }
       },
       "required": [
@@ -4206,7 +4226,7 @@
         },
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         }
       },
       "required": [
@@ -4297,7 +4317,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -4705,7 +4725,7 @@
         },
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         }
       },
       "required": [
@@ -4794,7 +4814,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -4821,13 +4841,23 @@
     "annotations": {
       "readOnlyHint": true
     },
-    "description": "Compute a technical indicator (RSI, MACD, Bollinger Bands, moving averages, ATR, VWAP, and more) over one equity symbol's OHLCV bars across a time range. For the raw OHLCV bars themselves, use get_equity_historicals.\n\nParameter rules:\n- The parameters an indicator accepts depend on type:\n  - period only: ema/sma (default 9); rsi/cci/atr/mfi (default 14); williams_r/adx (default 10); momentum (default 12); roc (default 14); donchian_channels (default 20).\n  - bollinger_bands: period (default 20) + num_std (default 2).\n  - macd: fast_period (12), slow_period (26), signal_period (9).\n  - keltner_channels: period (default 20) + multiplier (default 2).\n  - supertrend: period (default 10) + multiplier (default 3).\n  - pivot_points: method (only 'classic').\n  - vwap, obv: no parameters.\n  Omit a parameter to use its default. Passing a parameter the chosen type does not accept is rejected.\n- interval is REQUIRED — indicator periods are counted in bars, so there is no auto-selection.\n- adjustment_type defaults to 'split'; 'all' (split + dividend) requires a day-or-coarser interval.\n- If the requested range plus the indicator's warm-up exceeds the per-request bar cap, narrow the range or coarsen the interval.",
+    "description": "Compute a technical indicator (RSI, MACD, Bollinger Bands, moving averages, ATR, VWAP, and more) over the OHLCV bars of up to 10 equity symbols across a time range. For the raw OHLCV bars themselves, use get_equity_historicals.\n\nParameter rules:\n- The parameters an indicator accepts depend on type:\n  - period only: ema/sma (default 9); rsi/cci/atr/mfi (default 14); williams_r/adx (default 10); momentum (default 12); roc (default 14); donchian_channels (default 20).\n  - bollinger_bands: period (default 20) + num_std (default 2).\n  - macd: fast_period (12), slow_period (26), signal_period (9).\n  - keltner_channels: period (default 20) + multiplier (default 2).\n  - supertrend: period (default 10) + multiplier (default 3).\n  - pivot_points: method (only 'classic').\n  - vwap, obv: no parameters.\n  Omit a parameter to use its default. Passing a parameter the chosen type does not accept is rejected.\n- interval is REQUIRED — indicator periods are counted in bars, so there is no auto-selection.\n- adjustment_type defaults to 'split'; 'all' (split + dividend) requires a day-or-coarser interval.\n- If the requested range plus the indicator's warm-up exceeds the per-symbol bar cap, narrow the range or coarsen the interval.\n- When screening several symbols, prefer output 'latest' or 'last:N' over the full series.",
     "inputSchema": {
       "type": "object",
       "properties": {
+        "symbols": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Stock symbols (uppercase), max 10 per call. Pass every symbol you need in one call rather than one call per symbol; with more than 10, split across calls of 10 or fewer."
+        },
         "symbol": {
           "type": "string",
-          "description": "Stock symbol (uppercase). Exactly one symbol per call."
+          "description": "Deprecated: use symbols. A single stock symbol; pass either symbols or symbol, not both."
         },
         "type": {
           "type": "string",
@@ -4905,7 +4935,6 @@
         }
       },
       "required": [
-        "symbol",
         "type",
         "interval",
         "start_time"
@@ -4918,19 +4947,7 @@
         "data": {
           "type": "object",
           "properties": {
-            "symbol": {
-              "type": "string",
-              "description": "Ticker symbol echoed from the request."
-            },
-            "interval": {
-              "type": "string",
-              "description": "Bar interval the indicator was computed on, echoed from the request."
-            },
-            "bounds": {
-              "type": "string",
-              "description": "Session bounds echoed from the request."
-            },
-            "indicators": {
+            "results": {
               "type": [
                 "null",
                 "array"
@@ -4941,18 +4958,19 @@
                   "object"
                 ],
                 "properties": {
-                  "type": {
+                  "symbol": {
                     "type": "string",
-                    "description": "Indicator type, e.g. 'rsi', 'macd', 'bollinger_bands'."
+                    "description": "Ticker symbol echoed from the request."
                   },
-                  "params": {
-                    "type": "object",
-                    "description": "Numeric parameters actually used after defaults were applied, e.g. {\"period\":14} or {\"fast_period\":12,\"slow_period\":26,\"signal_period\":9}.",
-                    "additionalProperties": {
-                      "type": "number"
-                    }
+                  "interval": {
+                    "type": "string",
+                    "description": "Bar interval the indicator was computed on, echoed from the request."
                   },
-                  "series": {
+                  "bounds": {
+                    "type": "string",
+                    "description": "Session bounds echoed from the request."
+                  },
+                  "indicators": {
                     "type": [
                       "null",
                       "array"
@@ -4963,38 +4981,78 @@
                         "object"
                       ],
                       "properties": {
-                        "begins_at": {
+                        "type": {
                           "type": "string",
-                          "description": "Bar start timestamp (RFC3339 UTC), left-edge labeled."
+                          "description": "Indicator type, e.g. 'rsi', 'macd', 'bollinger_bands'."
+                        },
+                        "params": {
+                          "type": "object",
+                          "description": "Numeric parameters actually used after defaults were applied, e.g. {\"period\":14} or {\"fast_period\":12,\"slow_period\":26,\"signal_period\":9}.",
+                          "additionalProperties": {
+                            "type": "number"
+                          }
+                        },
+                        "series": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": [
+                              "null",
+                              "object"
+                            ],
+                            "properties": {
+                              "begins_at": {
+                                "type": "string",
+                                "description": "Bar start timestamp (RFC3339 UTC), left-edge labeled."
+                              }
+                            },
+                            "description": "One bar of indicator output: 'begins_at' plus one or more numeric output fields whose names depend on the indicator type — 'value' for single-output indicators; 'upper'/'middle'/'lower' for bollinger_bands and channel indicators; 'macd'/'signal'/'histogram' for macd. A field is null when the value is undefined for that bar."
+                          },
+                          "description": "Output bars in ascending time order, after the warm-up region is dropped. Trimmed per the request's output mode (full series, the latest bar, or the last N)."
                         }
                       },
-                      "description": "One bar of indicator output: 'begins_at' plus one or more numeric output fields whose names depend on the indicator type — 'value' for single-output indicators; 'upper'/'middle'/'lower' for bollinger_bands and channel indicators; 'macd'/'signal'/'histogram' for macd. A field is null when the value is undefined for that bar."
+                      "required": [
+                        "type",
+                        "params",
+                        "series"
+                      ],
+                      "additionalProperties": false
                     },
-                    "description": "Output bars in ascending time order, after the warm-up region is dropped. Trimmed per the request's output mode (full series, the latest bar, or the last N)."
+                    "description": "Computed indicators. Exactly one entry (one indicator per request)."
                   }
                 },
                 "required": [
-                  "type",
-                  "params",
-                  "series"
+                  "symbol",
+                  "interval",
+                  "bounds",
+                  "indicators"
                 ],
                 "additionalProperties": false
               },
-              "description": "Computed indicators. Exactly one entry (one indicator per request)."
+              "description": "One entry per resolved symbol, in request order."
+            },
+            "not_found": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "description": "Requested symbols that returned no data (e.g. delisted or invalid), in uppercase. Omitted when every symbol resolved."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
           "required": [
-            "symbol",
-            "interval",
-            "bounds",
-            "indicators"
+            "results"
           ],
           "additionalProperties": false
         },
         "guide": {
           "type": "string",
-          "description": "Convert begins_at (UTC) to the user's timezone for display. Skip a null output field rather than presenting it as zero. When an indicator emits multiple output fields per bar (e.g. bollinger_bands, macd), interpret them together, not in isolation."
+          "description": "Convert begins_at (UTC) to the user's timezone for display. Skip a null output field rather than presenting it as zero. When an indicator emits multiple output fields per bar (e.g. bollinger_bands, macd), interpret them together, not in isolation. Tell the user about any symbol in not_found rather than silently omitting it."
         }
       },
       "required": [
@@ -5996,10 +6054,6 @@
                 "additionalProperties": false
               },
               "description": "Option chains matching the filter. Empty when nothing resolves."
-            },
-            "next": {
-              "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -6236,7 +6290,7 @@
         },
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         }
       },
       "additionalProperties": false
@@ -6347,7 +6401,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -6358,7 +6412,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "Present chain_symbol, expiration_date, type, strike_price; flag state when not 'active' or tradability when not 'tradable'. Pass id to an order's leg.option_id. Quote sellout_datetime when the user asks \"when will Robinhood force-close this position?\" — it is the authoritative per-contract timestamp covering equity/index, AM/PM settle, and T-1 logic. underlying_type ('equity' or 'index') is informational; mention only when it affects strategy. When next is non-null, extract the cursor query param and call this tool again."
+          "description": "Present chain_symbol, expiration_date, type, strike_price; flag state when not 'active' or tradability when not 'tradable'. Pass id to an order's leg.option_id. Quote sellout_datetime when the user asks \"when will Robinhood force-close this position?\" — it is the authoritative per-contract timestamp covering equity/index, AM/PM settle, and T-1 logic. underlying_type ('equity' or 'index') is informational; mention only when it affects strategy. When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
         }
       },
       "required": [
@@ -6426,7 +6480,7 @@
     "annotations": {
       "readOnlyHint": true
     },
-    "description": "Fetch options orders for an account — list mode (newest first; open and closed, including fills, cancellations, and rejections) or single-order mode by passing order_id. When the user asks broadly for \"orders\" or \"my orders\" without naming an asset class or order type, call get_equity_orders, get_option_orders, get_crypto_orders, and get_advanced_orders in parallel so OCO groups are not omitted.\n\nFiltering tips:\n- Prefer narrow queries: combine state and/or created_at_gte for specific questions — the per-page cap is fixed.\n- chain_ids filters by underlying chain UUID (from get_option_chains).\n- created_at_gte: interpret relative times in the user's timezone, convert to UTC before sending.",
+    "description": "Fetch options orders for an account — list mode (newest first; open and closed, including fills, cancellations, and rejections) or single-order mode by passing order_id. When the user asks broadly for \"orders\" or \"my orders\" without naming an asset class or order type, call get_equity_orders, get_option_orders, get_crypto_orders, and get_advanced_orders in parallel so OCO groups are not omitted.\n\nFiltering tips:\n- Prefer narrow queries: combine state and/or created_at_gte for specific questions — the per-page cap is fixed.\n- chain_ids filters by underlying chain UUID (from get_option_chains).\n- created_at_gte: interpret relative times in the user's timezone, convert to UTC before sending.\n- To find agent-initiated orders, use agent_initiated=true: it returns every order an agent initiated, including ones the customer approved in the app, which placed_agent='agentic' alone would miss. It does not identify which agent, so describe results as agent-initiated orders rather than as this agent's own trades.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -6456,11 +6510,18 @@
         },
         "placed_agent": {
           "type": "string",
-          "description": "Filter to one source: 'user', 'agentic' (MCP), 'recurring', 'drip', etc."
+          "description": "Filter by the source that finally submitted or approved the order: 'user', 'agentic' (MCP), 'recurring', 'drip', etc. To find agent-initiated orders, use agent_initiated instead: an approved order is submitted by the customer and reads 'user' here."
+        },
+        "agent_initiated": {
+          "type": [
+            "null",
+            "boolean"
+          ],
+          "description": "true returns only agent-initiated orders (any agent, not just this one), whether an agent submitted them directly or the customer approved them in the Robinhood app; false returns only orders the customer created with no agent involved. Omit for all orders."
         },
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         }
       },
       "required": [
@@ -6576,7 +6637,11 @@
                   },
                   "placed_agent": {
                     "type": "string",
-                    "description": "Source that placed the order: 'user' (app), 'agentic' (MCP), 'recurring', 'drip', etc."
+                    "description": "Source that finally submitted or approved the order: 'user' (app), 'agentic' (MCP), 'recurring', 'drip', etc. An agent-proposed order the customer approved in the app reads 'user' here; use agent_initiated to recognize it as agent-initiated."
+                  },
+                  "agent_initiated": {
+                    "type": "boolean",
+                    "description": "True when the order originated from an agent's request, regardless of who submitted it: either an agent submitted it directly (Trade Approvals off), or the customer reviewed an agent's proposal and approved it in the Robinhood app (Trade Approvals on). Identifies agent-initiated orders in general, not orders initiated by this agent specifically. False when the customer created the order in the app with no agent involved."
                   },
                   "created_at": {
                     "type": "string",
@@ -6723,6 +6788,7 @@
                   "opening_strategy",
                   "closing_strategy",
                   "placed_agent",
+                  "agent_initiated",
                   "created_at",
                   "last_transaction_at",
                   "is_replaceable",
@@ -6734,7 +6800,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -6745,7 +6811,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "Describe orders by chain_symbol, opening_strategy or closing_strategy, state, quantity (with processed_quantity when partially filled), and premium; show id when cancellation may follow. Source chain_symbol from the response directly — never infer. Mention placed_agent when not 'user'. Recover the user-facing order type from type+trigger (limit+immediate=limit, market+immediate=market, limit+stop=stop_limit, market+stop=stop_market) and surface price for limit/stop_limit, stop_price for stop_limit/stop_market. is_replaceable=true marks orders eligible for replace_option_order (cancel-and-replace on the same contract). When next is non-null, extract the cursor query param and call this tool again."
+          "description": "Describe orders by chain_symbol, opening_strategy or closing_strategy, state, quantity (with processed_quantity when partially filled), and premium; show id when cancellation may follow. Source chain_symbol from the response directly — never infer. Describe agent_initiated=true orders as agent-initiated even when placed_agent is 'user' (the customer approved them in the app), without claiming this agent placed them; mention placed_agent when not 'user'. Recover the user-facing order type from type+trigger (limit+immediate=limit, market+immediate=market, limit+stop=stop_limit, market+stop=stop_market) and surface price for limit/stop_limit, stop_price for stop_limit/stop_market. is_replaceable=true marks orders eligible for replace_option_order (cancel-and-replace on the same contract). When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
         }
       },
       "required": [
@@ -6802,7 +6868,7 @@
         },
         "cursor": {
           "type": "string",
-          "description": "Pagination cursor. Omit for the first page; for the next page, pass the cursor query param from the prior response's next URL."
+          "description": "Pagination cursor. Omit for the first page; for the next page, pass the prior response's next value back verbatim."
         }
       },
       "required": [
@@ -6915,7 +6981,7 @@
             },
             "next": {
               "type": "string",
-              "description": "Next-page URL. Empty when there are no more pages."
+              "description": "Opaque cursor for the next page — NOT a URL. When non-empty more pages exist: call this tool again with cursor set to this value verbatim, leaving the other arguments unchanged. Empty on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -6926,7 +6992,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "Surface chain_symbol, type, quantity, average_price, and expiration_date. Look up strike/option_type (call/put) via get_option_instruments with option_id when needed. Warn the user about any non-zero pending_* quantities. When next is non-null, extract the cursor query param and call this tool again."
+          "description": "Surface chain_symbol, type, quantity, average_price, and expiration_date. Look up strike/option_type (call/put) via get_option_instruments with option_id when needed. Warn the user about any non-zero pending_* quantities. When next is non-empty more pages exist — call this tool again with cursor set to that value verbatim."
         }
       },
       "required": [
@@ -7620,10 +7686,6 @@
                 "additionalProperties": false
               },
               "description": "Robinhood-curated lists available for the user to follow."
-            },
-            "next": {
-              "type": "string",
-              "description": "Cursor URL for the next page when more results exist. Absent on the last page."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -7634,7 +7696,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "For 'this list is new' surfacing, use is_badged. The response is paginated — if next is non-null there are more lists; call again with the cursor from next."
+          "description": "For 'this list is new' surfacing, use is_badged. The response returns the available curated lists in one page."
         }
       },
       "required": [
@@ -7765,7 +7827,7 @@
                   "description": "Authoritative spendable figure for crypto buys (cash-only; excludes equity margin leverage)."
                 }
               },
-              "description": "Spendable buying power for crypto buys. Cash-only (crypto is not marginable), so it excludes the equity margin leverage that buying_power may include — quote this for 'how much can I spend on crypto'. Omitted when unavailable or when the caller is not in the crypto experiment.",
+              "description": "Spendable buying power for crypto buys. Cash-only (crypto is not marginable), so it excludes the equity margin leverage that buying_power may include — quote this for 'how much can I spend on crypto'. Omitted when unavailable.",
               "required": [
                 "buying_power"
               ],
@@ -8379,7 +8441,7 @@
                         },
                         "expression": {
                           "type": "string",
-                          "description": "Upstream market-data expression this column computes, e.g. dayVolume or fundamental.marketCap. Populated for every column, standard or custom — a named column is a preset that compiles to an expression upstream. Read-only explanatory detail: reference a column by display_name, never by this."
+                          "description": "Upstream market-data expression this column computes, e.g. dayVolume or fundamental.marketCap. Populated for every column, standard or custom — a named column is a preset that compiles to an expression upstream. Read-only explanatory detail: reference a column by display_name, never by this. Do NOT echo it back in a columns payload: for a filter-created or standard column that is rejected with \"column already exists from a filter\"."
                         }
                       },
                       "required": [
@@ -9039,6 +9101,14 @@
             "has_futures_contracts": {
               "type": "boolean",
               "description": "True when at least one item is a futures contract. Mention to the user when surfacing items so they know which rows are futures."
+            },
+            "display_name": {
+              "type": "string",
+              "description": "The watchlist's own name, e.g. 'Dip Targets'."
+            },
+            "owner_type": {
+              "type": "string",
+              "description": "'custom' (user-created, writable) or 'robinhood' (curated, read + follow/unfollow only)."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -9214,13 +9284,13 @@
   },
   {
     "name": "place_crypto_order",
-    "description": "Place a real crypto order with real money. Parameters mirror preview_crypto_order plus the optional ref_id. Requires an agentic-enabled crypto account.\n\nWorkflow: by default call preview_crypto_order first, present the estimated cost/credit and any validation errors, and get explicit user confirmation before calling this tool. Skip the preview only when the user has very explicitly asked to bypass it — a generic \"place this order\" is NOT a bypass.\n\nIdempotency: pass a fresh UUID as ref_id on the first call for each logical order, and re-send the SAME ref_id on retries of transient failures. Use a new ref_id only when the user wants a new order.\n\nParameter rules:\n- Provide exactly one of quantity or dollar_amount; dollar_amount works with every type.\n- limit_price is required for limit and stop_limit; stop_price is required for stop_loss and stop_limit.\n- symbol is resolved to a currency pair before placement; pass a bare asset symbol (e.g. 'BTC') or a pair ('BTC-USD').\n- tax_lots (specified-lot selling, sell only): first call get_crypto_tax_lots for the symbol (optionally with strategy + quantity), then pass tax_lots as {open_lot_id, quantity} pairs whose quantities sum to the order quantity. Omit for the default disposal. Quantity-based sells only; check selection_state first. Lot quantities take at most 8 decimal places, and the order quantity must be a multiple of the pair's min_order_quantity_increment (see get_currency_pairs); an off-increment quantity is rejected before placement because the lot quantities would no longer match it. Lot availability is verified when the order is placed, so a preview can pass and the place can still be rejected — e.g. a lot was used by another order, its available quantity changed, or specified-lot selling is no longer enabled for the asset.\n- Accounts that require trade approval may not be able to carry a specified-lot sell; if the error mentions TAX_LOT_APPROVALS_DISABLED, tell the user and offer to retry without tax_lots (default disposal).",
+    "description": "Place a real crypto order with real money. Parameters mirror preview_crypto_order plus the optional ref_id. Requires an agentic-enabled crypto account.\n\nIdempotency: pass a fresh UUID as ref_id on the first call for each logical order, and re-send the SAME ref_id on retries of transient failures. Use a new ref_id only when the user wants a new order.\n\nParameter rules:\n- Provide exactly one of quantity or dollar_amount; dollar_amount works with every type.\n- limit_price is required for limit and stop_limit; stop_price is required for stop_loss and stop_limit.\n- symbol is resolved to a currency pair before placement; pass a bare asset symbol (e.g. 'BTC') or a pair ('BTC-USD').",
     "inputSchema": {
       "type": "object",
       "properties": {
         "rhs_account_number": {
           "type": "string",
-          "description": "Numeric brokerage account number (the 'rhs_account_number' field on get_accounts entries — distinct from the alphanumeric 'account_number'). Must be an agentic-enabled crypto account. Required."
+          "description": "Numeric brokerage account number (the 'rhs_account_number' field on get_accounts entries — distinct from the alphanumeric 'account_number'). Must be an agentic-enabled crypto account. Required. Do NOT pass rhc_account_number (the linked crypto account, labeled 'Crypto Account' on get_accounts) — that is a different identifier space and will return no crypto account found."
         },
         "symbol": {
           "type": "string",
@@ -9277,7 +9347,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "Optional specified-lot selection for a SELL order. To sell specific tax lots instead of the default disposal, pass {open_lot_id, quantity} objects where open_lot_id comes from get_crypto_tax_lots and the quantities sum to the order quantity. Omit for the default. Sell only; quantity-based orders only (not dollar_amount); at most 50 lots; only when get_crypto_tax_lots reports selection_state 'enabled'."
+          "description": "Optional specified-lot selection for a SELL order. To sell specific tax lots instead of the default disposal, pass {open_lot_id, quantity} objects whose quantities sum to the order quantity, with open_lot_id taken from the account's crypto tax lots (see the request guide). Omit for the default. Sell only; quantity-based orders only (not dollar_amount); at most 50 lots; only when the lot listing reports selection_state 'enabled'. Not every account can select lots: if the tool rejects tax_lots as not available, tell the user and offer the default disposal instead."
         },
         "ref_id": {
           "type": "string",
@@ -9310,7 +9380,7 @@
                 },
                 "ref_id": {
                   "type": "string",
-                  "description": "Client-supplied idempotency key from order placement. Useful for reconciling agent-placed orders against records the agent kept."
+                  "description": "Idempotency key the order is stored under, unique per account. Usually the ref_id passed to place_crypto_order; an order placed through a trade approval carries that approval's id instead. Omitted when the order has none."
                 },
                 "account_id": {
                   "type": "string",
@@ -9641,740 +9711,116 @@
               "type": "string",
               "description": "Crypto account number the order was placed against. Present THIS as the account to the user — not the brokerage account number used to look the account up. When absent, refer to the account as the user's linked crypto account."
             },
-            "approval": {
+            "lot_basis": {
               "type": [
                 "null",
                 "object"
               ],
               "properties": {
-                "approval_id": {
+                "estimated_cost_basis": {
                   "type": "string",
-                  "description": "Unique id of this approval. Pass it to decline_trade_approval to decline this pending approval."
+                  "description": "Estimated total cost of the units sold from the selected lots whose cost is known, from each lot's rounded per-unit cost. An estimate, informational, not tax advice."
                 },
-                "account_number": {
+                "estimated_gain": {
                   "type": "string",
-                  "description": "The account this approval belongs to."
+                  "description": "Estimated gain on the lots with a known cost (negative is a loss): their pro-rata share of the estimated proceeds net of the fee, before any backup withholding, minus estimated_cost_basis. An estimate, not tax advice."
                 },
-                "asset_class": {
-                  "type": "string",
-                  "description": "Asset class of the proposed order: ASSET_CLASS_EQUITY, ASSET_CLASS_OPTION, or ASSET_CLASS_CRYPTO."
+                "estimated_gain_percent": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "estimated_gain as a percent of estimated_cost_basis, rounded to one decimal place (negative is a loss). Absent when estimated_cost_basis is zero."
                 },
-                "state": {
-                  "type": "string",
-                  "description": "Lifecycle state: APPROVAL_STATE_PENDING (awaiting the customer), APPROVAL_STATE_APPROVED, APPROVAL_STATE_DECLINED, APPROVAL_STATE_EXPIRED, or APPROVAL_STATE_AUTO_APPROVED (the account did not require approval for this order, so it was submitted straight to the market and never waited on the customer). Only APPROVAL_STATE_PENDING can be declined. Listings return pending approvals."
+                "short_term_gain": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "The part of estimated_gain from lots held short-term (term_type 'st'). Present when at least one selected lot with a known cost is short-term."
                 },
-                "is_edited": {
+                "long_term_gain": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "The part of estimated_gain from lots held long-term (term_type 'lt'). Present when at least one selected lot with a known cost is long-term."
+                },
+                "other_term_gain": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "Gain on lots whose holding term is not known or not a plain short/long term; tell the user this portion could not be classified."
+                },
+                "incomplete": {
                   "type": "boolean",
-                  "description": "True when the actual order parameters differ from what was proposed (the customer edited before approving)."
+                  "description": "True when at least one selected lot has no known cost, so estimated_cost_basis and estimated_gain cover only the lots whose cost is known."
                 },
-                "rationale": {
-                  "type": "string",
-                  "description": "Optional free-text reason recorded when the order was proposed."
-                },
-                "proposed_order": {
+                "uncovered_quantity": {
                   "type": [
                     "null",
-                    "object"
+                    "string"
                   ],
-                  "properties": {
-                    "asset_class": {
-                      "type": "string",
-                      "description": "Asset class of this order: ASSET_CLASS_EQUITY, ASSET_CLASS_OPTION, or ASSET_CLASS_CRYPTO."
-                    },
-                    "side": {
-                      "type": "string",
-                      "description": "Order side, e.g. 'buy', 'sell', or 'sell_short'. Omitted for contingent orders."
-                    },
-                    "order_type": {
-                      "type": "string",
-                      "description": "Order type, e.g. 'market', 'limit', 'stop_loss', or 'stop_limit'. Omitted for contingent orders."
-                    },
-                    "time_in_force": {
-                      "type": "string",
-                      "description": "How long the order stays active, e.g. 'gfd' (good for day) or 'gtc' (good till canceled). Omitted for contingent orders."
-                    },
-                    "market_hours": {
-                      "type": "string",
-                      "description": "Which trading session the order is valid for, e.g. 'regular_hours', 'extended_hours', or 'all_day_hours'. Omitted when the upstream did not specify a session."
-                    },
-                    "trigger": {
-                      "type": "string",
-                      "description": "What activates the order, e.g. 'immediate' or 'stop'. Omitted for contingent orders."
-                    },
-                    "contingency_type": {
-                      "type": "string",
-                      "description": "Advanced-order contingency, e.g. 'oco'. Omitted for standalone orders."
-                    },
-                    "sub_orders": {
-                      "type": [
-                        "null",
-                        "array"
-                      ],
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "asset_class": {
-                            "type": "string",
-                            "description": "Asset class of this sub-order."
-                          },
-                          "side": {
-                            "type": "string",
-                            "description": "Sub-order side, e.g. 'buy' or 'sell'."
-                          },
-                          "quantity": {
-                            "type": "string",
-                            "description": "Share quantity as a decimal string."
-                          },
-                          "order_type": {
-                            "type": "string",
-                            "description": "Sub-order type, e.g. 'market' or 'limit'."
-                          },
-                          "trigger": {
-                            "type": "string",
-                            "description": "What activates the sub-order: 'immediate' or 'stop'."
-                          },
-                          "limit_price": {
-                            "type": [
-                              "null",
-                              "object"
-                            ],
-                            "properties": {
-                              "amount": {
-                                "type": "string",
-                                "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                              },
-                              "currency_code": {
-                                "type": "string",
-                                "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                              }
-                            },
-                            "description": "Limit price when the sub-order is limit-priced.",
-                            "required": [
-                              "amount"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "stop_price": {
-                            "type": [
-                              "null",
-                              "object"
-                            ],
-                            "properties": {
-                              "amount": {
-                                "type": "string",
-                                "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                              },
-                              "currency_code": {
-                                "type": "string",
-                                "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                              }
-                            },
-                            "description": "Stop trigger price when the sub-order is stop-triggered.",
-                            "required": [
-                              "amount"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "time_in_force": {
-                            "type": "string",
-                            "description": "How long the sub-order stays active."
-                          },
-                          "is_primary": {
-                            "type": "boolean",
-                            "description": "Whether this sub-order triggers the remaining contingent orders."
-                          }
-                        },
-                        "required": [
-                          "asset_class",
-                          "side",
-                          "quantity",
-                          "order_type",
-                          "trigger",
-                          "time_in_force",
-                          "is_primary"
-                        ],
-                        "additionalProperties": false
-                      },
-                      "description": "The complete sub-order set for a contingent order."
-                    },
-                    "quantity": {
-                      "type": "string",
-                      "description": "Share, contract, or coin count as a decimal string. Present for quantity-based orders; mutually exclusive with dollar_amount."
-                    },
-                    "dollar_amount": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Notional dollar amount for a dollar-based order. Present for dollar-based orders; mutually exclusive with quantity.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "limit_price": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Limit price; present only for limit and stop-limit orders.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "stop_price": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Stop (trigger) price; present only for stop-limit and stop-market orders.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "peg_type": {
-                      "type": "string",
-                      "description": "Trailing-stop peg basis when this is a trailing stop: 'price' or 'percentage'. Omitted for non-trailing orders."
-                    },
-                    "price_peg": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Trailing offset as a dollar amount; present when peg_type is 'price'.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "percentage_peg": {
-                      "type": "string",
-                      "description": "Trailing offset as a percentage (decimal string); present when peg_type is 'percentage'."
-                    },
-                    "symbol": {
-                      "type": "string",
-                      "description": "Ticker symbol of the tradable, e.g. 'AAPL' for an equity or option underlying, or 'BTC-USD' for crypto."
-                    },
-                    "strike_price": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Option strike price; present only for option orders.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "expiration_date": {
-                      "type": "string",
-                      "description": "Option expiration date as 'YYYY-MM-DD'; present only for option orders."
-                    },
-                    "option_type": {
-                      "type": "string",
-                      "description": "Option contract type, 'call' or 'put'; present only for option orders."
-                    },
-                    "position_effect": {
-                      "type": "string",
-                      "description": "Whether the option order opens or closes a position, e.g. 'open', 'close', 'roll'; present only for option orders."
-                    },
-                    "estimated_cost": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Estimated total debit (cost) of the order. Mutually exclusive with estimated_credit.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "estimated_credit": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Estimated total credit (proceeds) of the order. Mutually exclusive with estimated_cost.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "estimated_quantity": {
-                      "type": "string",
-                      "description": "Estimated fill quantity as a decimal string, when the order is sized in dollars."
-                    },
-                    "tax_lot_selection_type": {
-                      "type": "string",
-                      "description": "Tax-lot disposal method for a specified-lot sell, e.g. 'custom'. Omitted when the order uses the account's default disposal method, and never populated on actual_order."
-                    },
-                    "tax_lots": {
-                      "type": [
-                        "null",
-                        "array"
-                      ],
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "open_lot_id": {
-                            "type": "string",
-                            "description": "UUID of the open tax lot being sold."
-                          },
-                          "quantity": {
-                            "type": "string",
-                            "description": "Quantity sold from this lot as a decimal string (shares for equities, asset units for crypto)."
-                          }
-                        },
-                        "required": [
-                          "open_lot_id",
-                          "quantity"
-                        ],
-                        "additionalProperties": false
-                      },
-                      "description": "The specific open lots to sell; present only for a specified-lot (custom) sell. Never populated on actual_order, regardless of the placed order's lot selection."
-                    }
-                  },
-                  "description": "The order as originally proposed.",
-                  "required": [
-                    "asset_class"
-                  ],
-                  "additionalProperties": false
-                },
-                "actual_order": {
-                  "type": [
-                    "null",
-                    "object"
-                  ],
-                  "properties": {
-                    "asset_class": {
-                      "type": "string",
-                      "description": "Asset class of this order: ASSET_CLASS_EQUITY, ASSET_CLASS_OPTION, or ASSET_CLASS_CRYPTO."
-                    },
-                    "side": {
-                      "type": "string",
-                      "description": "Order side, e.g. 'buy', 'sell', or 'sell_short'. Omitted for contingent orders."
-                    },
-                    "order_type": {
-                      "type": "string",
-                      "description": "Order type, e.g. 'market', 'limit', 'stop_loss', or 'stop_limit'. Omitted for contingent orders."
-                    },
-                    "time_in_force": {
-                      "type": "string",
-                      "description": "How long the order stays active, e.g. 'gfd' (good for day) or 'gtc' (good till canceled). Omitted for contingent orders."
-                    },
-                    "market_hours": {
-                      "type": "string",
-                      "description": "Which trading session the order is valid for, e.g. 'regular_hours', 'extended_hours', or 'all_day_hours'. Omitted when the upstream did not specify a session."
-                    },
-                    "trigger": {
-                      "type": "string",
-                      "description": "What activates the order, e.g. 'immediate' or 'stop'. Omitted for contingent orders."
-                    },
-                    "contingency_type": {
-                      "type": "string",
-                      "description": "Advanced-order contingency, e.g. 'oco'. Omitted for standalone orders."
-                    },
-                    "sub_orders": {
-                      "type": [
-                        "null",
-                        "array"
-                      ],
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "asset_class": {
-                            "type": "string",
-                            "description": "Asset class of this sub-order."
-                          },
-                          "side": {
-                            "type": "string",
-                            "description": "Sub-order side, e.g. 'buy' or 'sell'."
-                          },
-                          "quantity": {
-                            "type": "string",
-                            "description": "Share quantity as a decimal string."
-                          },
-                          "order_type": {
-                            "type": "string",
-                            "description": "Sub-order type, e.g. 'market' or 'limit'."
-                          },
-                          "trigger": {
-                            "type": "string",
-                            "description": "What activates the sub-order: 'immediate' or 'stop'."
-                          },
-                          "limit_price": {
-                            "type": [
-                              "null",
-                              "object"
-                            ],
-                            "properties": {
-                              "amount": {
-                                "type": "string",
-                                "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                              },
-                              "currency_code": {
-                                "type": "string",
-                                "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                              }
-                            },
-                            "description": "Limit price when the sub-order is limit-priced.",
-                            "required": [
-                              "amount"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "stop_price": {
-                            "type": [
-                              "null",
-                              "object"
-                            ],
-                            "properties": {
-                              "amount": {
-                                "type": "string",
-                                "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                              },
-                              "currency_code": {
-                                "type": "string",
-                                "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                              }
-                            },
-                            "description": "Stop trigger price when the sub-order is stop-triggered.",
-                            "required": [
-                              "amount"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "time_in_force": {
-                            "type": "string",
-                            "description": "How long the sub-order stays active."
-                          },
-                          "is_primary": {
-                            "type": "boolean",
-                            "description": "Whether this sub-order triggers the remaining contingent orders."
-                          }
-                        },
-                        "required": [
-                          "asset_class",
-                          "side",
-                          "quantity",
-                          "order_type",
-                          "trigger",
-                          "time_in_force",
-                          "is_primary"
-                        ],
-                        "additionalProperties": false
-                      },
-                      "description": "The complete sub-order set for a contingent order."
-                    },
-                    "quantity": {
-                      "type": "string",
-                      "description": "Share, contract, or coin count as a decimal string. Present for quantity-based orders; mutually exclusive with dollar_amount."
-                    },
-                    "dollar_amount": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Notional dollar amount for a dollar-based order. Present for dollar-based orders; mutually exclusive with quantity.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "limit_price": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Limit price; present only for limit and stop-limit orders.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "stop_price": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Stop (trigger) price; present only for stop-limit and stop-market orders.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "peg_type": {
-                      "type": "string",
-                      "description": "Trailing-stop peg basis when this is a trailing stop: 'price' or 'percentage'. Omitted for non-trailing orders."
-                    },
-                    "price_peg": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Trailing offset as a dollar amount; present when peg_type is 'price'.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "percentage_peg": {
-                      "type": "string",
-                      "description": "Trailing offset as a percentage (decimal string); present when peg_type is 'percentage'."
-                    },
-                    "symbol": {
-                      "type": "string",
-                      "description": "Ticker symbol of the tradable, e.g. 'AAPL' for an equity or option underlying, or 'BTC-USD' for crypto."
-                    },
-                    "strike_price": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Option strike price; present only for option orders.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "expiration_date": {
-                      "type": "string",
-                      "description": "Option expiration date as 'YYYY-MM-DD'; present only for option orders."
-                    },
-                    "option_type": {
-                      "type": "string",
-                      "description": "Option contract type, 'call' or 'put'; present only for option orders."
-                    },
-                    "position_effect": {
-                      "type": "string",
-                      "description": "Whether the option order opens or closes a position, e.g. 'open', 'close', 'roll'; present only for option orders."
-                    },
-                    "estimated_cost": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Estimated total debit (cost) of the order. Mutually exclusive with estimated_credit.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "estimated_credit": {
-                      "type": [
-                        "null",
-                        "object"
-                      ],
-                      "properties": {
-                        "amount": {
-                          "type": "string",
-                          "description": "Decimal monetary amount as a string, e.g. '150.25'. Not a number, to avoid float rounding."
-                        },
-                        "currency_code": {
-                          "type": "string",
-                          "description": "Currency of the amount, e.g. 'USD'. Omitted when the upstream did not specify one."
-                        }
-                      },
-                      "description": "Estimated total credit (proceeds) of the order. Mutually exclusive with estimated_cost.",
-                      "required": [
-                        "amount"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "estimated_quantity": {
-                      "type": "string",
-                      "description": "Estimated fill quantity as a decimal string, when the order is sized in dollars."
-                    },
-                    "tax_lot_selection_type": {
-                      "type": "string",
-                      "description": "Tax-lot disposal method for a specified-lot sell, e.g. 'custom'. Omitted when the order uses the account's default disposal method, and never populated on actual_order."
-                    },
-                    "tax_lots": {
-                      "type": [
-                        "null",
-                        "array"
-                      ],
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "open_lot_id": {
-                            "type": "string",
-                            "description": "UUID of the open tax lot being sold."
-                          },
-                          "quantity": {
-                            "type": "string",
-                            "description": "Quantity sold from this lot as a decimal string (shares for equities, asset units for crypto)."
-                          }
-                        },
-                        "required": [
-                          "open_lot_id",
-                          "quantity"
-                        ],
-                        "additionalProperties": false
-                      },
-                      "description": "The specific open lots to sell; present only for a specified-lot (custom) sell. Never populated on actual_order, regardless of the placed order's lot selection."
-                    }
-                  },
-                  "description": "The reconciled order actually placed; present only when is_edited is true.",
-                  "required": [
-                    "asset_class"
-                  ],
-                  "additionalProperties": false
-                },
-                "expires_at": {
-                  "type": "string",
-                  "description": "RFC3339 timestamp of when this pending approval expires."
-                },
-                "created_at": {
-                  "type": "string",
-                  "description": "RFC3339 timestamp of when this approval was created."
-                },
-                "updated_at": {
-                  "type": "string",
-                  "description": "RFC3339 timestamp of when this approval was last updated."
+                  "description": "Units of this sale with no known cost basis; estimated_cost_basis and estimated_gain exclude them. Tell the user the estimate covers only part of the sale."
                 }
               },
-              "description": "Present only when the account requires the customer's approval before agent-placed trades execute: the order was NOT placed. Read approval.state — APPROVAL_STATE_PENDING is awaiting the customer's decision in the Robinhood app; a terminal state (e.g. APPROVAL_STATE_DECLINED, APPROVAL_STATE_EXPIRED) means this ref_id's earlier approval is already resolved. Never present otherwise.",
+              "description": "Estimated cost basis and gain for a specified-lot sell, from the selected lots' rounded per-unit costs and the order's estimated proceeds net of the fee. Present only when tax_lots was supplied, the order was placed, and at least one selected lot has a known cost. All figures are estimates, informational, not tax advice.",
               "required": [
-                "approval_id",
-                "account_number",
-                "asset_class",
-                "state",
-                "is_edited"
+                "estimated_cost_basis",
+                "estimated_gain"
               ],
               "additionalProperties": false
+            },
+            "selected_lots": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "open_lot_id": {
+                    "type": "string",
+                    "description": "The open tax lot, in the canonical form get_crypto_tax_lots lists it."
+                  },
+                  "quantity_available": {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "description": "Units of this lot still selectable when it was looked up, net of units reserved by other open sell orders. Absent when the lot could not be looked up."
+                  },
+                  "quantity_to_sell": {
+                    "type": "string",
+                    "description": "Units this order sells from the lot, as requested."
+                  },
+                  "cost_per_unit": {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "description": "The lot's per-unit cost in USD as reported for the lot, already rounded there — an estimate, not the exact basis. Absent when the lot's cost is not known."
+                  },
+                  "cost_basis": {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "description": "Estimated cost of the units this order sells from the lot: cost_per_unit times quantity_to_sell, rounded to two decimals. Absent when the lot's cost is not known."
+                  },
+                  "term_type": {
+                    "type": "string",
+                    "description": "'lt' long-term, 'st' short-term, 'unknown' when the holding term is not known; other values are special cases. Absent when the lot could not be looked up."
+                  }
+                },
+                "required": [
+                  "open_lot_id",
+                  "quantity_to_sell"
+                ],
+                "additionalProperties": false
+              },
+              "description": "The lots this order sells from, in the order requested. Present only when tax_lots was supplied and the order was placed; absent on an approval-only response. Render them as a Lots section of the confirmation: one row per lot with open_lot_id, quantity_to_sell, and cost_basis (write 'unknown' when cost_basis is absent)."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -10382,7 +9828,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "The order has been submitted — not necessarily filled. Describe it with state. Tell the user the order was placed, summarize side, type (ALWAYS the app's name: stop_loss = \"stop order\", stop_limit = \"stop limit order\" — never show the raw values to the user), quantity (or dollar amount) phrased as an amount of the asset (e.g. '0.001542 ETH') and never as 'shares', any limit/stop prices, and the estimated fee — from estimated_fee, shown even when 0, with the fee_rate value appended verbatim in parentheses when present, e.g. '$1.23 (0.5% maker)' or '$1.23 (0.35%)', or the fee_context value appended verbatim in parentheses when fee_rate is absent and fee_context is present, e.g. '$0 (asset not eligible for fee tiers)' (never re-derive, re-label, or reword either parenthetical; none when both are absent). When tax_withholding is present, give the backup withholding as its own line in the confirmation: show whichever of tax_withholding.estimated_withholding_amount / total_withholding_amount is present (exactly one ever is), labeled \"Estimated backup withholding\" for the estimate and \"Backup withholding\" for the total, with the tax_withholding.withholding_rate value appended verbatim in parentheses, e.g. 'Estimated backup withholding: $23.88 (24%)'; never mention withholding when tax_withholding is absent. State the total from whichever net_* field the order carries — labeled estimated for net_rounded_estimated_notional, final (or \"so far\" while cumulative_quantity is below quantity) for net_rounded_executed_notional — never from rounded_estimated_notional_with_estimated_fee, which is net of the fee only and will overstate a withholding-subject sell; if neither net total is present, give no total figure. Remind them it may not have filled yet and can be checked or canceled via id. For orders entered by dollar_amount, quantity is derived at placement — from the live quote for market orders (a buy is sized at the market price like the app: debit typically ~the dollar_amount, worst case up to ~1% more; a sell likewise sized at the market price: credit typically ~the dollar_amount, worst case up to ~5% less), from the stop price for stop_loss orders (typical fill notional ~the dollar_amount, worst case up to the collar worse), from the limit price for limit and stop limit orders. For market and stop_loss present the derived quantity as estimated until the order fills; for limit and stop_limit the derived quantity is exact at placement and a buy's total is capped at the requested amount. On fee-priced accounts a sell's fee is deducted from the credit. For orders entered by quantity, the amount is exact. Identify the account by the crypto_account_number returned in the response, not by the brokerage account number the tool was called with. When tax_lots were provided, say the order sells the specified lots; otherwise do not mention lots. On error, the order was NOT placed — report the error verbatim."
+          "description": "The order has been submitted — not necessarily filled. Describe it with state. Tell the user the order was placed, summarize side, type (ALWAYS the app's name: stop_loss = \"stop order\", stop_limit = \"stop limit order\" — never show the raw values to the user), quantity (or dollar amount) phrased as an amount of the asset (e.g. '0.001542 ETH') and never as 'shares', any limit/stop prices, and the estimated fee — from estimated_fee, shown even when 0, with the fee_rate value appended verbatim in parentheses when present, e.g. '$1.23 (0.5% maker)' or '$1.23 (0.35%)', or the fee_context value appended verbatim in parentheses when fee_rate is absent and fee_context is present, e.g. '$0 (asset not eligible for fee tiers)' (never re-derive, re-label, or reword either parenthetical; none when both are absent). When tax_withholding is present, give the backup withholding as its own line in the confirmation: show whichever of tax_withholding.estimated_withholding_amount / total_withholding_amount is present (exactly one ever is), labeled \"Estimated backup withholding\" for the estimate and \"Backup withholding\" for the total, with the tax_withholding.withholding_rate value appended verbatim in parentheses, e.g. 'Estimated backup withholding: $23.88 (24%)'; never mention withholding when tax_withholding is absent. State the total from whichever net_* field the order carries — labeled estimated for net_rounded_estimated_notional, final (or \"so far\" while cumulative_quantity is below quantity) for net_rounded_executed_notional — never from rounded_estimated_notional_with_estimated_fee, which is net of the fee only and will overstate a withholding-subject sell; if neither net total is present, give no total figure. Remind them it may not have filled yet and can be checked or canceled via id. For orders entered by dollar_amount, quantity is derived at placement — from the live quote for market orders (a buy is sized at the market price like the app: debit typically ~the dollar_amount, worst case up to ~1% more; a sell likewise sized at the market price: credit typically ~the dollar_amount, worst case up to ~5% less), from the stop price for stop_loss orders (typical fill notional ~the dollar_amount, worst case up to the collar worse), from the limit price for limit and stop limit orders. For market and stop_loss present the derived quantity as estimated until the order fills; for limit and stop_limit the derived quantity is exact at placement and a buy's total is capped at the requested amount. On fee-priced accounts a sell's fee is deducted from the credit. For orders entered by quantity, the amount is exact. Identify the account by the crypto_account_number returned in the response, not by the brokerage account number the tool was called with. When tax_lots were provided, say the order sells the specified lots; otherwise do not mention lots. When lot_basis is present, add a Cost basis section under the confirmation (before the Lots section) with rows Estimated cost basis and Estimated gain/loss (and Short-term / Long-term / Other-term when present), labeled as estimates; on the Estimated gain/loss row append estimated_gain_percent in parentheses after the dollar figure, signed like it and with a percent sign, e.g. '+$2.07 (+73.7%)' or '-$1.10 (-4.2%)' — it is already rounded to one decimal place, so use it as given, never recompute it, and add no parenthetical when it is absent; the gain is not the amount credited — the total is — and it is computed before any backup withholding; do not recompute it from the Lots rows, whose per-lot cost bases are rounded separately; when lot_basis.incomplete is true say the basis covers only lots with a known cost. Informational, not tax advice. When selected_lots is present, add a Lots section under the confirmation with one row per entry, in the order given: the lot id (open_lot_id), the quantity sold from it (quantity_to_sell), and its cost basis (cost_basis; write 'unknown' when absent). Label the row short-term or long-term from term_type when present. On error, the order was NOT placed — report the error verbatim."
         }
       },
       "required": [
@@ -10394,7 +9840,7 @@
   },
   {
     "name": "place_equity_order",
-    "description": "Place a real equity order with real money. Parameters mirror review_equity_order plus the optional ref_id. Requires an agentic_allowed=true account; non-agentic accounts are rejected — do not call.\n\nWorkflow: by default call review_equity_order first, present the estimated cost and any alerts, and get explicit user confirmation before calling this tool. Skip review only when the user has very explicitly asked to bypass it (e.g. \"skip the review\", \"just place it, don't review\") — a generic \"place this order\" is NOT a bypass.\n\nIdempotency: pass a fresh UUID as ref_id on the first call for each logical order, and re-send the SAME ref_id on retries of transient transport failures. Use a new ref_id only when the user wants a new order.\n\nParameter rules:\n- If the user has not specified type, ask. For immediate fills with price protection, prefer a marketable limit at the current ask over a plain market.\n- Outside regular hours, only limit orders execute. For an immediate fill during extended or overnight/24-hour sessions, place a limit order (a marketable limit at the current ask) with market_hours set to that session — not a market order. Market and stop orders are regular_hours-only; placed after hours as regular_hours they queue for the next regular open.\n- Provide exactly one of quantity or dollar_amount, and take the value from the user — if they did not say how much, ask. Never substitute a default such as 1 share or $100. dollar_amount requires type=market (server computes shares from last_trade_price).\n- Fractional shares: only on type=market with market_hours=regular_hours, eligible accounts, up to 6 decimal places, no short sells.\n- limit_price required for limit/stop_limit; stop_price required for stop_market/stop_limit.\n- Fractional and dollar-based orders only place in regular_hours; the tool rejects them in other sessions.\n- tax_lots (specified-lot selling, sell only): to sell specific lots, first call get_equity_tax_lots for the symbol, then pass tax_lots as {open_lot_id, quantity} pairs whose quantities sum to the order quantity. Omit for default (FIFO) cost basis. US accounts only; not allowed with dollar_amount, stop orders, all_day_hours, or fractional limit orders.",
+    "description": "Place a real equity order with real money. Parameters mirror review_equity_order plus the optional ref_id. Requires an agentic_allowed=true account; non-agentic accounts are rejected — do not call.\n\nIdempotency: pass a fresh UUID as ref_id on the first call for each logical order, and re-send the SAME ref_id on retries of transient transport failures. Use a new ref_id only when the user wants a new order.\n\nParameter rules:\n- If the user has not specified type, ask. For immediate fills with price protection, prefer a marketable limit at the current ask over a plain market.\n- Outside regular hours, only limit orders execute. For an immediate fill during extended or overnight/24-hour sessions, place a limit order (a marketable limit at the current ask) with market_hours set to that session — not a market order. Market and stop orders are regular_hours-only; placed after hours as regular_hours they queue for the next regular open.\n- Provide exactly one of quantity or dollar_amount, and take the value from the user — if they did not say how much, ask. Never substitute a default such as 1 share or $100. dollar_amount requires type=market (server computes shares from last_trade_price).\n- Fractional shares: only on type=market with market_hours=regular_hours, eligible accounts, up to 6 decimal places, no short sells.\n- limit_price required for limit/stop_limit; stop_price required for stop_market/stop_limit.\n- Fractional and dollar-based orders only place in regular_hours; the tool rejects them in other sessions.\n- tax_lots (specified-lot selling, sell only): to sell specific lots, first call get_equity_tax_lots for the symbol, then pass tax_lots as {open_lot_id, quantity} pairs whose quantities sum to the order quantity. Omit for default (FIFO) cost basis. US accounts only; not allowed with dollar_amount, stop orders, all_day_hours, or fractional limit orders.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -10492,6 +9938,10 @@
                   "type": "string",
                   "description": "Order UUID; needed by cancel_equity_order."
                 },
+                "ref_id": {
+                  "type": "string",
+                  "description": "Idempotency key the order is stored under, unique per account. Usually the ref_id passed to place_equity_order; an order placed through a trade approval carries that approval's id instead. Omitted when the order has none."
+                },
                 "instrument_id": {
                   "type": "string",
                   "description": "Instrument UUID; resolve to symbol via the instruments endpoint if needed."
@@ -10584,7 +10034,11 @@
                 },
                 "placed_agent": {
                   "type": "string",
-                  "description": "Source that placed the order: 'user' (app), 'agentic' (MCP), 'recurring', 'drip', 'brokeback' (system), or other internal values."
+                  "description": "Source that finally submitted or approved the order: 'user' (app), 'agentic' (MCP), 'recurring', 'drip', or other internal system values. An agent-proposed order the customer approved in the app reads 'user' here; use agent_initiated to recognize it as agent-initiated."
+                },
+                "agent_initiated": {
+                  "type": "boolean",
+                  "description": "True when the order originated from an agent's request, regardless of who submitted it: either an agent submitted it directly (Trade Approvals off), or the customer reviewed an agent's proposal and approved it in the Robinhood app (Trade Approvals on). Identifies agent-initiated orders in general, not orders initiated by this agent specifically. False when the customer created the order in the app with no agent involved."
                 },
                 "created_at": {
                   "type": "string",
@@ -10661,6 +10115,7 @@
                 "market_hours",
                 "trigger",
                 "placed_agent",
+                "agent_initiated",
                 "created_at",
                 "last_transaction_at",
                 "executions"
@@ -10685,7 +10140,7 @@
   },
   {
     "name": "place_option_order",
-    "description": "Place a real options order with real money.\n\nWorkflow: by default call review_option_order first, present the alerts, fees, collateral, and quote, and get explicit user confirmation before calling this tool. Skip review only when the user has very explicitly asked to bypass it (e.g. \"skip the review\", \"just place it, don't review\") — a generic \"place this order\" is NOT a bypass.\n\nCapability: single-leg options orders — Level 2 strategies (covered calls, cash-secured puts, long calls and puts). Multi-leg spreads (Level 3 strategies) are supported on option_level_3 accounts.\n\nAccount requirements: confirm via get_accounts that the chosen account is agentic_allowed=true AND has option_level_2 or option_level_3. If agentic_allowed=false do NOT call. If option_level is empty or option_level_0, do NOT call; follow the get_accounts guide for how to direct the user to enroll.\n\nAlert handling: pre-trade alerts surface only in review_option_order. After the user has acknowledged the reviewed alert, call this tool with the same parameters.\n\nIdempotency: pass a fresh UUID as ref_id on the first call for each logical order, and re-send the SAME ref_id on retries of transient transport failures. Use a new ref_id only when the user wants a new order.\n\nTo find option_id: get_option_chains → get_option_instruments filtered by expiration_date/strike_price/type.\n\nParameter rules:\n- Multi-leg leg layouts — vertical spread: two legs, same expiration, different strikes, opposite sides. Calendar: two legs, same strike, different expirations. Iron condor: four legs, a put spread plus a call spread. Roll: close the leg you hold (position_effect 'close', side opposite the position) plus open the replacement ('open').\n- Get the net price from the user rather than inferring it from individual leg quotes.\n- Multi-leg is not available on cash or retirement accounts through this tool.\n- type: 'limit' (default), 'market', 'stop_limit', 'stop_market'. price for limit/stop_limit; stop_price for stop_market/stop_limit.\n- market, stop_market, and stop_limit are single-leg only. market and stop_market are also regular_hours, GFD only. stop_market is sell-to-close only with stop_price below the current ask.\n\nNot currently supported anywhere (including the Robinhood apps):\n- combo orders. At Robinhood, \"combo\" specifically means a stock-option combo: one option leg paired with 100 shares of the underlying equity. In broader industry use, \"combo\" without qualifier sometimes refers to multi-leg option structures.",
+    "description": "Place a real options order with real money.\n\nCapability: single-leg options orders — Level 2 strategies (covered calls, cash-secured puts, long calls and puts). Multi-leg spreads (Level 3 strategies) are supported on option_level_3 accounts.\n\nAccount requirements: confirm via get_accounts that the chosen account is agentic_allowed=true AND has option_level_2 or option_level_3. If agentic_allowed=false do NOT call. If option_level is empty or option_level_0, do NOT call; follow the get_accounts guide for how to direct the user to enroll.\n\nAlert handling: pre-trade alerts surface only in review_option_order. After the user has acknowledged the reviewed alert, call this tool with the same parameters.\n\nIdempotency: pass a fresh UUID as ref_id on the first call for each logical order, and re-send the SAME ref_id on retries of transient transport failures. Use a new ref_id only when the user wants a new order.\n\nTo find option_id: get_option_chains → get_option_instruments filtered by expiration_date/strike_price/type.\n\nParameter rules:\n- Multi-leg leg layouts — vertical spread: two legs, same expiration, different strikes, opposite sides. Calendar: two legs, same strike, different expirations. Iron condor: four legs, a put spread plus a call spread. Roll: close the leg you hold (position_effect 'close', side opposite the position) plus open the replacement ('open').\n- Get the net price from the user rather than inferring it from individual leg quotes.\n- Multi-leg is not available on cash or retirement accounts through this tool.\n- type: 'limit' (default), 'market', 'stop_limit', 'stop_market'. price for limit/stop_limit; stop_price for stop_market/stop_limit.\n- market, stop_market, and stop_limit are single-leg only. market and stop_market are also regular_hours, GFD only. stop_market is sell-to-close only with stop_price below the current ask.\n\nNot currently supported anywhere (including the Robinhood apps):\n- combo orders. At Robinhood, \"combo\" specifically means a stock-option combo: one option leg paired with 100 shares of the underlying equity. In broader industry use, \"combo\" without qualifier sometimes refers to multi-leg option structures.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -10870,7 +10325,11 @@
                 },
                 "placed_agent": {
                   "type": "string",
-                  "description": "Source that placed the order: 'user' (app), 'agentic' (MCP), 'recurring', 'drip', etc."
+                  "description": "Source that finally submitted or approved the order: 'user' (app), 'agentic' (MCP), 'recurring', 'drip', etc. An agent-proposed order the customer approved in the app reads 'user' here; use agent_initiated to recognize it as agent-initiated."
+                },
+                "agent_initiated": {
+                  "type": "boolean",
+                  "description": "True when the order originated from an agent's request, regardless of who submitted it: either an agent submitted it directly (Trade Approvals off), or the customer reviewed an agent's proposal and approved it in the Robinhood app (Trade Approvals on). Identifies agent-initiated orders in general, not orders initiated by this agent specifically. False when the customer created the order in the app with no agent involved."
                 },
                 "created_at": {
                   "type": "string",
@@ -11018,6 +10477,7 @@
                 "opening_strategy",
                 "closing_strategy",
                 "placed_agent",
+                "agent_initiated",
                 "created_at",
                 "last_transaction_at",
                 "is_replaceable",
@@ -11043,13 +10503,13 @@
   },
   {
     "name": "preview_crypto_order",
-    "description": "Simulate a crypto order without placing it — returns the transient order shape with the estimated cost/credit and fees resolved, plus any pre-trade validation errors. Call this by default before place_crypto_order unless the user has very explicitly asked to skip the preview. Requires an agentic-enabled crypto account.\n\nParameter rules:\n- Provide exactly one of quantity or dollar_amount; dollar_amount works with every type.\n- limit_price is required for limit and stop_limit; stop_price is required for stop_loss and stop_limit.\n- symbol is resolved to a currency pair before the preview; pass a bare asset symbol (e.g. 'BTC') or a pair ('BTC-USD').\n- tax_lots (specified-lot selling, sell only): first call get_crypto_tax_lots for the symbol (optionally with strategy + quantity), then pass tax_lots as {open_lot_id, quantity} pairs whose quantities sum to the order quantity. Omit for the default disposal. Quantity-based sells only; check selection_state first. Lot quantities take at most 8 decimal places, and the order quantity must be a multiple of the pair's min_order_quantity_increment (see get_currency_pairs); an off-increment quantity is rejected before the preview because the lot quantities would no longer match it. Lot availability is verified when the order is placed, so a preview can pass and the place can still be rejected — e.g. a lot was used by another order, its available quantity changed, or specified-lot selling is no longer enabled for the asset.",
+    "description": "Simulate a crypto order without placing it — returns the transient order shape with the estimated cost/credit and fees resolved, plus any pre-trade validation errors. Call this by default before place_crypto_order unless the user has very explicitly asked to skip the preview. Requires an agentic-enabled crypto account.\n\nParameter rules:\n- Provide exactly one of quantity or dollar_amount; dollar_amount works with every type.\n- limit_price is required for limit and stop_limit; stop_price is required for stop_loss and stop_limit.\n- symbol is resolved to a currency pair before the preview; pass a bare asset symbol (e.g. 'BTC') or a pair ('BTC-USD').",
     "inputSchema": {
       "type": "object",
       "properties": {
         "rhs_account_number": {
           "type": "string",
-          "description": "Numeric brokerage account number (the 'rhs_account_number' field on get_accounts entries — distinct from the alphanumeric 'account_number'). Must be an agentic-enabled crypto account. Required."
+          "description": "Numeric brokerage account number (the 'rhs_account_number' field on get_accounts entries — distinct from the alphanumeric 'account_number'). Must be an agentic-enabled crypto account. Required. Do NOT pass rhc_account_number (the linked crypto account, labeled 'Crypto Account' on get_accounts) — that is a different identifier space and will return no crypto account found."
         },
         "symbol": {
           "type": "string",
@@ -11106,7 +10566,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "Optional specified-lot selection for a SELL order. To sell specific tax lots instead of the default disposal, pass {open_lot_id, quantity} objects where open_lot_id comes from get_crypto_tax_lots and the quantities sum to the order quantity. Omit for the default. Sell only; quantity-based orders only (not dollar_amount); at most 50 lots; only when get_crypto_tax_lots reports selection_state 'enabled'."
+          "description": "Optional specified-lot selection for a SELL order. To sell specific tax lots instead of the default disposal, pass {open_lot_id, quantity} objects whose quantities sum to the order quantity, with open_lot_id taken from the account's crypto tax lots (see the request guide). Omit for the default. Sell only; quantity-based orders only (not dollar_amount); at most 50 lots; only when the lot listing reports selection_state 'enabled'. Not every account can select lots: if the tool rejects tax_lots as not available, tell the user and offer the default disposal instead."
         }
       },
       "required": [
@@ -11135,7 +10595,7 @@
                 },
                 "ref_id": {
                   "type": "string",
-                  "description": "Client-supplied idempotency key from order placement. Useful for reconciling agent-placed orders against records the agent kept."
+                  "description": "Idempotency key the order is stored under, unique per account. Usually the ref_id passed to place_crypto_order; an order placed through a trade approval carries that approval's id instead. Omitted when the order has none."
                 },
                 "account_id": {
                   "type": "string",
@@ -11462,6 +10922,117 @@
             "crypto_account_number": {
               "type": "string",
               "description": "Crypto account number the order is previewed against. Present THIS as the account to the user — not the brokerage account number used to look the account up. When absent, refer to the account as the user's linked crypto account."
+            },
+            "lot_basis": {
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "estimated_cost_basis": {
+                  "type": "string",
+                  "description": "Estimated total cost of the units sold from the selected lots whose cost is known, from each lot's rounded per-unit cost. An estimate, informational, not tax advice."
+                },
+                "estimated_gain": {
+                  "type": "string",
+                  "description": "Estimated gain on the lots with a known cost (negative is a loss): their pro-rata share of the estimated proceeds net of the fee, before any backup withholding, minus estimated_cost_basis. An estimate, not tax advice."
+                },
+                "estimated_gain_percent": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "estimated_gain as a percent of estimated_cost_basis, rounded to one decimal place (negative is a loss). Absent when estimated_cost_basis is zero."
+                },
+                "short_term_gain": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "The part of estimated_gain from lots held short-term (term_type 'st'). Present when at least one selected lot with a known cost is short-term."
+                },
+                "long_term_gain": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "The part of estimated_gain from lots held long-term (term_type 'lt'). Present when at least one selected lot with a known cost is long-term."
+                },
+                "other_term_gain": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "Gain on lots whose holding term is not known or not a plain short/long term; tell the user this portion could not be classified."
+                },
+                "incomplete": {
+                  "type": "boolean",
+                  "description": "True when at least one selected lot has no known cost, so estimated_cost_basis and estimated_gain cover only the lots whose cost is known."
+                },
+                "uncovered_quantity": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "description": "Units of this sale with no known cost basis; estimated_cost_basis and estimated_gain exclude them. Tell the user the estimate covers only part of the sale."
+                }
+              },
+              "description": "Estimated cost basis and gain for a specified-lot sell, from the selected lots' rounded per-unit costs and the estimated proceeds net of the fee. Present only when tax_lots was supplied and at least one selected lot has a known cost. All figures are estimates, informational, not tax advice.",
+              "required": [
+                "estimated_cost_basis",
+                "estimated_gain"
+              ],
+              "additionalProperties": false
+            },
+            "selected_lots": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "open_lot_id": {
+                    "type": "string",
+                    "description": "The open tax lot, in the canonical form get_crypto_tax_lots lists it."
+                  },
+                  "quantity_available": {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "description": "Units of this lot still selectable when it was looked up, net of units reserved by other open sell orders. Absent when the lot could not be looked up."
+                  },
+                  "quantity_to_sell": {
+                    "type": "string",
+                    "description": "Units this order sells from the lot, as requested."
+                  },
+                  "cost_per_unit": {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "description": "The lot's per-unit cost in USD as reported for the lot, already rounded there — an estimate, not the exact basis. Absent when the lot's cost is not known."
+                  },
+                  "cost_basis": {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "description": "Estimated cost of the units this order sells from the lot: cost_per_unit times quantity_to_sell, rounded to two decimals. Absent when the lot's cost is not known."
+                  },
+                  "term_type": {
+                    "type": "string",
+                    "description": "'lt' long-term, 'st' short-term, 'unknown' when the holding term is not known; other values are special cases. Absent when the lot could not be looked up."
+                  }
+                },
+                "required": [
+                  "open_lot_id",
+                  "quantity_to_sell"
+                ],
+                "additionalProperties": false
+              },
+              "description": "The lots this order sells from, in the order requested. Present only when tax_lots was supplied. Render them as a Lots section of the order table: one row per lot with open_lot_id, quantity_to_sell, and cost_basis (write 'unknown' when cost_basis is absent)."
             }
           },
           "description": "Tool-specific result payload; see the inner properties for fields.",
@@ -11473,7 +11044,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "This tool does NOT place the order — it returns a preview for the user to review. Present the preview as a table with exactly these rows, in this order: 1) side; 2) asset — symbol and pair, e.g. DOGE (DOGE-USD); 3) order type — ALWAYS the app's name: stop_loss = \"stop order\", stop_limit = \"stop limit order\"; never show the raw stop_loss/stop_limit values to the user; 4) quantity — always phrased as an amount of the asset (e.g. '0.001542 ETH'), never as 'shares'; for orders entered by quantity, the exact amount the user specified (for market and stop_loss label the per-unit price as estimated); for orders entered by dollar_amount, include the per-unit price (for market the response's price — the raw quote, the same price the app displays — with quantity derivation described under dollar_amount; the stop price for stop_loss, the limit price for limit/stop_limit) — label the quantity estimated for market and stop_loss, and exact for limit and stop_limit (derived deterministically from the limit price at placement); 5) limit price (limit and stop_limit orders only); 6) stop price (stop orders only); 7) notional entered (only when the resolved amount differs from what the user asked for); 8) time in force; 9) estimated fee — from estimated_fee, shown even when 0, with the fee_rate value appended verbatim in parentheses when present, e.g. \"$1.23 (0.5% maker)\" or \"$1.23 (0.35%)\"; when fee_rate is absent and fee_context is present, append the fee_context value verbatim in parentheses instead, e.g. \"$0 (asset not eligible for fee tiers)\" — never re-derive, re-label, or reword either parenthetical, and no parenthetical when both are absent; 10) estimated backup withholding — include this row ONLY when the order's tax_withholding is present, from tax_withholding.estimated_withholding_amount (the only amount a preview carries — it has no fills), labeled \"Estimated backup withholding\", with the tax_withholding.withholding_rate value appended verbatim in parentheses when present, e.g. \"$23.88 (24%)\"; never raise withholding at all when tax_withholding is absent; 11) estimated total cost or credit — from the order's net_rounded_estimated_notional, which is ALREADY net of both the fee in row 9 and the withholding in row 10, so present it as the bottom line and never subtract either row from it again; if it is absent, omit this row rather than substituting any other field as the total; label it plainly without qualifiers like \"(fee included)\"; ignore order.rounded_estimated_notional_with_estimated_fee, which is net of the fee only and will overstate a withholding-subject sell; a limit buy's final debit never exceeds it, a market buy's final debit is typically ~it with a worst case up to the collar more, a market sell's credit is typically ~it with a worst case up to the collar less, a stop order's fill notional is typically ~it with a worst case up to the collar worse; mention the collar sizing (see dollar_amount) only when the user asks why it is estimated; 12) routing. Directly below the table, add this line verbatim: \"You can switch between Market Maker Routing and Exchange Routing anytime in the Robinhood app under Settings → Crypto → Fee Tiers.\" — omit it only when the routing row is absent. When tax_withholding is present, add this sentence verbatim directly below the table: \"Your order will be subject to backup withholding. Please confirm your tax status at https://robinhood.com/tax-certification.\" — exactly as written, no rewording; omit it entirely when tax_withholding is absent. Identify the account by the crypto_account_number returned in the response, not by the brokerage account number the tool was called with. A request for a 'stop loss', 'stop order', or 'stop market' order is the stop_loss type — do not ask which stop type (a limit price given alongside the trigger makes it stop_limit); ask only when the phrasing names no type, e.g. a bare 'stop' or 'protect my position'. Then get explicit user confirmation before calling place_crypto_order. No order was created and no id was assigned; the response mirrors an order but is transient. When tax_lots were provided, say the order will sell the specified lots and that lot availability is confirmed only at placement; otherwise do not mention lots."
+          "description": "This tool does NOT place the order — it returns a preview for the user to review. Present the preview as a table with exactly these rows, in this order: 1) side; 2) asset — symbol and pair, e.g. DOGE (DOGE-USD); 3) order type — ALWAYS the app's name: stop_loss = \"stop order\", stop_limit = \"stop limit order\"; never show the raw stop_loss/stop_limit values to the user; 4) quantity — always phrased as an amount of the asset (e.g. '0.001542 ETH'), never as 'shares'; for orders entered by quantity, the exact amount the user specified (for market and stop_loss label the per-unit price as estimated); for orders entered by dollar_amount, include the per-unit price (for market the response's price — the raw quote, the same price the app displays — with quantity derivation described under dollar_amount; the stop price for stop_loss, the limit price for limit/stop_limit) — label the quantity estimated for market and stop_loss, and exact for limit and stop_limit (derived deterministically from the limit price at placement); 5) limit price (limit and stop_limit orders only); 6) stop price (stop orders only); 7) notional entered (only when the resolved amount differs from what the user asked for); 8) time in force; 9) estimated fee — from estimated_fee, shown even when 0, with the fee_rate value appended verbatim in parentheses when present, e.g. \"$1.23 (0.5% maker)\" or \"$1.23 (0.35%)\"; when fee_rate is absent and fee_context is present, append the fee_context value verbatim in parentheses instead, e.g. \"$0 (asset not eligible for fee tiers)\" — never re-derive, re-label, or reword either parenthetical, and no parenthetical when both are absent; 10) estimated backup withholding — include this row ONLY when the order's tax_withholding is present, from tax_withholding.estimated_withholding_amount (the only amount a preview carries — it has no fills), labeled \"Estimated backup withholding\", with the tax_withholding.withholding_rate value appended verbatim in parentheses when present, e.g. \"$23.88 (24%)\"; never raise withholding at all when tax_withholding is absent; 11) estimated total cost or credit — from the order's net_rounded_estimated_notional, which is ALREADY net of both the fee in row 9 and the withholding in row 10, so present it as the bottom line and never subtract either row from it again; if it is absent, omit this row rather than substituting any other field as the total; label it plainly without qualifiers like \"(fee included)\"; ignore order.rounded_estimated_notional_with_estimated_fee, which is net of the fee only and will overstate a withholding-subject sell; a limit buy's final debit never exceeds it, a market buy's final debit is typically ~it with a worst case up to the collar more, a market sell's credit is typically ~it with a worst case up to the collar less, a stop order's fill notional is typically ~it with a worst case up to the collar worse; mention the collar sizing (see dollar_amount) only when the user asks why it is estimated; 12) routing. Directly below the table, add this line verbatim: \"You can switch between Market Maker Routing and Exchange Routing anytime in the Robinhood app under Settings → Crypto → Fee Tiers.\" — omit it only when the routing row is absent. When lot_basis is present, add a Cost basis section under the order table (before the Lots section, never inside the order table) with rows Estimated cost basis and Estimated gain/loss (and Short-term / Long-term / Other-term when present), labeled as estimates; on the Estimated gain/loss row append estimated_gain_percent in parentheses after the dollar figure, signed like it and with a percent sign, e.g. \"+$2.07 (+73.7%)\" or \"-$1.10 (-4.2%)\" — it is already rounded to one decimal place, so use it as given, never recompute it, and add no parenthetical when it is absent; the gain is not the amount credited — the total row is — and it is computed before any backup withholding; do not recompute it from the Lots rows, whose per-lot cost bases are rounded separately; when lot_basis.incomplete is true say the basis covers only lots with a known cost. Informational, not tax advice. When selected_lots is present, add a Lots section under the order table with one row per entry, in the order given: the lot id (open_lot_id), the quantity sold from it (quantity_to_sell), and its cost basis (cost_basis; write 'unknown' when absent). Label the row short-term or long-term from term_type when present. These are the lots the user chose — show them before asking for confirmation. When tax_withholding is present, add this sentence verbatim directly below the table: \"Your order will be subject to backup withholding. Please confirm your tax status at https://robinhood.com/tax-certification.\" — exactly as written, no rewording; omit it entirely when tax_withholding is absent. Identify the account by the crypto_account_number returned in the response, not by the brokerage account number the tool was called with. A request for a 'stop loss', 'stop order', or 'stop market' order is the stop_loss type — do not ask which stop type (a limit price given alongside the trigger makes it stop_limit); ask only when the phrasing names no type, e.g. a bare 'stop' or 'protect my position'. Then get explicit user confirmation before calling place_crypto_order. No order was created and no id was assigned; the response mirrors an order but is transient. When tax_lots were provided, say the order will sell the specified lots and that lot availability was checked for this preview and is re-checked at placement; otherwise do not mention lots."
         }
       },
       "required": [
@@ -11563,7 +11134,7 @@
               },
               "expression": {
                 "type": "string",
-                "description": "Raw market-data expression computing the column's value, built from get_scanner_datapoints (same language as expression filters), e.g. \"optionsPutDayVolume / optionsCallDayVolume\". Omit to reference a standard column by display_name alone. If the expression equals a standard column's canonical form, the column is saved as that standard column and display_name is REPLACED by its canonical name (e.g. \"optionsPutDayVolume\" always saves as \"Total put volume\")."
+                "description": "Raw market-data expression computing the column's value, built from get_scanner_datapoints (same language as expression filters), e.g. \"optionsPutDayVolume / optionsCallDayVolume\". Omit to reference a standard column by display_name alone. Also omit it when display_name matches a column one of this scan's filters already creates: passing both is rejected with \"column already exists from a filter\". The expression get_scans reports on an existing column is read-only explanation, not an input, and echoing it back is the usual cause of that rejection. If the expression equals a standard column's canonical form, the column is saved as that standard column and display_name is REPLACED by its canonical name (e.g. \"optionsPutDayVolume\" always saves as \"Total put volume\")."
               },
               "visible": {
                 "type": [
@@ -11587,7 +11158,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "Optional result columns to display on top of what the filters and the standard default columns already show. Each column: display_name plus either an expression (raw market-data expression from get_scanner_datapoints) or nothing (a standard column referenced by name, e.g. \"Market cap\"). Columns display values, filters screen — to show a datapoint without restricting results, add a column here, never a no-op filter (e.g. >= 0)."
+          "description": "Optional result columns to display on top of what the filters and the standard default columns already show. Each column: display_name plus either an expression (raw market-data expression from get_scanner_datapoints) or nothing (a standard column named by display_name; an unknown name is rejected with the full list of valid ones). Columns display values, filters screen — to show a datapoint without restricting results, add a column here, never a no-op filter (e.g. >= 0)."
         }
       },
       "required": [
@@ -11727,7 +11298,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "How to interpret the response:\n- result.total_items and result.results are exactly what a scan saved with these filters would return right now. Results are live; a later run will differ.\n- Nothing was persisted: there is no scan_id, the preview does not appear in get_scans, and there is nothing to clean up.\n- result.filters_applied echoes the filters as parsed: enum filters carry their filter_type_enum; expression filters echo FILTER_TYPE_CUSTOM with the expression.\n- Columns you passed appear as keys in each result row's columns map — under the canonical standard name when an expression matched a standard column's form. An empty cell means the datapoint is undefined for that instrument; the row still matched the filters.\n\nWhen presenting:\n- Render results as a table and state total_items.\n- Make clear this was a preview — nothing was saved. If the user is happy with the results, offer create_scan with the same filters, expressions included: create_scan is the tool that saves them (update_scan_filters does not accept expressions).\n\nError handling:\n- \"expression cannot be combined with filter_type\" / \"FILTER_TYPE_CUSTOM requires an expression\" / \"interval/length/plot are not used with an expression\" → fix the filter shape and retry; these are local checks, no market-data query was spent.\n- A market-data validation error (quotes the rejected expression and the reason, e.g. an unknown function or an out-of-range argument) → fix the expression and preview again. Do not attempt a save until a preview succeeds.\n- Each preview costs the same rate-limit budget as run_scan — fix everything you can between attempts rather than iterating one field at a time."
+          "description": "How to interpret the response:\n- result.total_items and result.results are exactly what a scan saved with these filters would return right now. Results are live; a later run will differ.\n- Nothing was persisted: there is no scan_id, the preview does not appear in get_scans, and there is nothing to clean up.\n- result.filters_applied echoes the filters as parsed: enum filters carry their filter_type_enum; expression filters echo FILTER_TYPE_CUSTOM with the expression.\n- Columns you passed appear as keys in each result row's columns map — under the canonical standard name when an expression matched a standard column's form. An empty cell means the datapoint is undefined for that instrument; the row still matched the filters.\n\nWhen presenting:\n- Render results as a table and state total_items.\n- Make clear this was a preview — nothing was saved. If the user is happy with the results, offer create_scan with the same filters, expressions included: create_scan is the tool that saves them (update_scan_filters does not accept expressions).\n\nError handling:\n- \"expression cannot be combined with filter_type\" / \"FILTER_TYPE_CUSTOM requires an expression\" / \"interval/length/plot are not used with an expression\" → fix the filter shape and retry; these are local checks, no market-data query was spent.\n- A market-data validation error (quotes the rejected expression and the reason, e.g. an unknown function or an out-of-range argument) → fix the expression and preview again. Do not attempt a save until a preview succeeds.\n- \"column X already exists from a filter\" → one of the scan's filters already produces a column with that display name, and an expression was passed for it as well. Re-send that column with NO expression to customize it (visibility, position), or give it a different display_name. Do not drop the filter.\n- \"no standard column is named X\" → the display name is not a standard column and no expression was given. Pick one of the valid names the error lists, or supply an expression from get_scanner_datapoints.\n- Each preview costs the same rate-limit budget as run_scan — fix everything you can between attempts rather than iterating one field at a time."
         }
       },
       "required": [
@@ -13449,7 +13020,7 @@
   },
   {
     "name": "update_scan_config",
-    "description": "Change the sort order of a saved scan's results table, and/or replace its extra result columns. The scan's filters are always preserved.\n\nParameters:\n- scan_id (required) — the scan to modify.\n- sorting_column (required unless columns is provided) — display name of the column to sort by. Must match a column on the scan; the error response lists available columns when no match is found.\n- sorting_direction — \"asc\" or \"desc\". Required with sorting_column.\n- columns (optional) — REPLACE the scan's extra result columns (beyond the filters' own columns and the standard defaults). The scan keeps its current filters verbatim and gets a new configuration version — earlier versions are preserved. To add one column, pass the complete intended set (current columns from get_scans plus the new one). Columns display values, filters screen — to show a datapoint without restricting results, this is the tool, never a no-op filter.\n\nRestrictions:\n- Cortex-managed scans (cortex_managed: true in get_scans) are rejected.\n- Omitted/empty columns means sorting-only. To remove every extra column, use create_scan with this scan's scan_id and its current filters.\n- An expression matching a standard column's canonical form is saved as that standard column, canonical name included.\n\nReturns the scan with the changes applied and fresh live results.",
+    "description": "Change the sort order of a saved scan's results table, and/or replace its extra result columns. The scan's filters are always preserved.\n\nParameters:\n- scan_id (required) — the scan to modify.\n- sorting_column (required unless columns is provided) — display name of the column to sort by. Must match a column on the scan; the error response lists available columns when no match is found.\n- sorting_direction — \"asc\" or \"desc\". Required with sorting_column.\n- columns (optional) — REPLACE the scan's extra result columns (beyond the filters' own columns and the standard defaults). The scan keeps its current filters verbatim and gets a new configuration version — earlier versions are preserved. To add one column, pass the complete intended set (current columns from get_scans plus the new one). When re-sending a column the scan already has, send it by display_name ALONE if it comes from one of the scan's filters or is a standard column, and by display_name plus its expression only if it is a column you yourself added with an expression. Do not echo back the expression get_scans reports for a filter-created or standard column: that is rejected with \"column already exists from a filter\". Columns display values, filters screen — to show a datapoint without restricting results, this is the tool, never a no-op filter.\n\nRestrictions:\n- Cortex-managed scans (cortex_managed: true in get_scans) are rejected.\n- Omitted/empty columns means sorting-only. To remove every extra column, use create_scan with this scan's scan_id and its current filters.\n- An expression matching a standard column's canonical form is saved as that standard column, canonical name included.\n\nReturns the scan with the changes applied and fresh live results.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -13479,7 +13050,7 @@
               },
               "expression": {
                 "type": "string",
-                "description": "Raw market-data expression computing the column's value, built from get_scanner_datapoints (same language as expression filters), e.g. \"optionsPutDayVolume / optionsCallDayVolume\". Omit to reference a standard column by display_name alone. If the expression equals a standard column's canonical form, the column is saved as that standard column and display_name is REPLACED by its canonical name (e.g. \"optionsPutDayVolume\" always saves as \"Total put volume\")."
+                "description": "Raw market-data expression computing the column's value, built from get_scanner_datapoints (same language as expression filters), e.g. \"optionsPutDayVolume / optionsCallDayVolume\". Omit to reference a standard column by display_name alone. Also omit it when display_name matches a column one of this scan's filters already creates: passing both is rejected with \"column already exists from a filter\". The expression get_scans reports on an existing column is read-only explanation, not an input, and echoing it back is the usual cause of that rejection. If the expression equals a standard column's canonical form, the column is saved as that standard column and display_name is REPLACED by its canonical name (e.g. \"optionsPutDayVolume\" always saves as \"Total put volume\")."
               },
               "visible": {
                 "type": [
@@ -13503,7 +13074,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "REPLACE the scan's extra result columns (the ones beyond what its filters and the standard defaults contribute): the scan keeps its current filters verbatim and gets a new configuration version whose extra columns are exactly this list. To add one column, read the scan's current columns with get_scans and pass the complete intended set, carrying visible: false for any column get_scans shows as hidden (a hidden extra column re-sent without it becomes visible). Omitted or empty means sorting-only, columns untouched; to remove every extra column, use create_scan with this scan's scan_id and its current filters. Each column: display_name plus either an expression (from get_scanner_datapoints) or nothing (a standard column referenced by name, e.g. \"Market cap\")."
+          "description": "REPLACE the scan's extra result columns (the ones beyond what its filters and the standard defaults contribute): the scan keeps its current filters verbatim and gets a new configuration version whose extra columns are exactly this list. To add one column, read the scan's current columns with get_scans and pass the complete intended set, carrying visible: false for any column get_scans shows as hidden (a hidden extra column re-sent without it becomes visible). Omitted or empty means sorting-only, columns untouched; to remove every extra column, use create_scan with this scan's scan_id and its current filters. Each column: display_name plus either an expression (from get_scanner_datapoints) or nothing (a standard column named by display_name; an unknown name is rejected with the full list of valid ones)."
         }
       },
       "required": [
@@ -13658,7 +13229,7 @@
         },
         "guide": {
           "type": "string",
-          "description": "How to interpret the response:\n- result.sorted_by — the sort in effect (\"Volume desc\" etc.).\n- result.columns — the scan's columns after the change (when columns were passed, verify the intended set landed; expression columns matching a standard column adopt its canonical name).\n- result.results — live results reflecting the change.\n- The change is persisted: subsequent run_scan calls on this scan_id will return rows accordingly.\n\nWhen presenting:\n- Confirm what changed (sort, columns, or both) to the user.\n- Render the results as a table. Eyeball-verify a sort change with the user if they care: the top rows should match the requested direction.\n- Mention that the change is saved for future runs of the scan.\n\nError handling:\n- \"no column named X\" → the requested sorting_column does not match any column. The error message lists available columns — relay them to the user and ask which they meant. When changing columns and sort together, the sort can name one of the new columns; if the sort fails, the columns change has already landed — retry with update_scan_config sorting-only rather than re-sending columns.\n- \"columns[N]: ...\" → column validation failure at index N, nothing was changed.\n- \"no standard column is named X\" → the display name (without expression) isn't a standard column; the error lists valid names. Either pick one or provide an expression.\n- \"created by Cortex\" → the scan is read-only via MCP. Suggest creating a fresh scan via create_scan.\n- \"scan X does not exist or you do not have access\" → bad scan_id. Suggest get_scans."
+          "description": "How to interpret the response:\n- result.sorted_by — the sort in effect (\"Volume desc\" etc.).\n- result.columns — the scan's columns after the change (when columns were passed, verify the intended set landed; expression columns matching a standard column adopt its canonical name).\n- result.results — live results reflecting the change.\n- The change is persisted: subsequent run_scan calls on this scan_id will return rows accordingly.\n\nWhen presenting:\n- Confirm what changed (sort, columns, or both) to the user.\n- Render the results as a table. Eyeball-verify a sort change with the user if they care: the top rows should match the requested direction.\n- Mention that the change is saved for future runs of the scan.\n\nError handling:\n- \"no column named X\" → the requested sorting_column does not match any column. The error message lists available columns — relay them to the user and ask which they meant. When changing columns and sort together, the sort can name one of the new columns; if the sort fails, the columns change has already landed — retry with update_scan_config sorting-only rather than re-sending columns.\n- \"columns[N]: ...\" → column validation failure at index N, nothing was changed.\n- \"no standard column is named X\" → the display name (without expression) isn't a standard column; the error lists valid names. Either pick one or provide an expression.\n- \"column X already exists from a filter\" → one of the scan's filters already produces a column with that display name, and an expression was passed for it as well. Re-send that column with NO expression to customize it (visibility, position), or give it a different display_name. Do not drop the filter.\n- \"created by Cortex\" → the scan is read-only via MCP. Suggest creating a fresh scan via create_scan.\n- \"scan X does not exist or you do not have access\" → bad scan_id. Suggest get_scans."
         }
       },
       "required": [

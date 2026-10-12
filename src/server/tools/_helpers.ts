@@ -63,6 +63,29 @@ export function parseUtc(value: string): number {
   return ms;
 }
 
+export const PLACED_AGENT_PARAM = z
+  .string()
+  .optional()
+  .describe(
+    "One source that submitted or approved the order, e.g. 'user', 'agentic', 'recurring'. An agent order the customer approved in the app reads 'user'; use agent_initiated to find agent orders.",
+  );
+
+export const AGENT_INITIATED_PARAM = z
+  .boolean()
+  .nullish()
+  .describe(
+    "true: only agent-initiated orders (any agent, incl. customer-approved in the app); false: only orders with no agent involved. Omit for all.",
+  );
+
+/** An order is agent-initiated when it carries an agent_id or an agent placed it. */
+export function matchesAgentInitiated(
+  o: { agent_id?: unknown; placed_agent?: string | null },
+  want: boolean | null | undefined,
+): boolean {
+  if (want == null) return true;
+  return (o.agent_id != null || o.placed_agent === "agentic") === want;
+}
+
 /** Split "a, b,c" into trimmed non-empty parts. */
 export function csv(value: string | undefined): string[] | undefined {
   const parts = value
